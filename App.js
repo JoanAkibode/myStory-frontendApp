@@ -6,6 +6,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import * as Linking from 'expo-linking';
 import DashboardScreen from './src/screens/DashboardScreen';
+import AdminScreen from './src/screens/AdminScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -28,7 +29,9 @@ const linking = {
                     }
                 }
             },
-            Home: 'home'
+            Home: 'home',
+            Dashboard: 'dashboard',
+            Admin: 'admin-panel-secret'
         }
     }
 };
@@ -82,6 +85,15 @@ function App() {
                     component={DashboardScreen}
                     options={{
                         title: 'My Dashboard',
+                        headerLeft: null,
+                        gestureEnabled: false
+                    }}
+                />
+                <Stack.Screen 
+                    name="Admin" 
+                    component={AdminScreen}
+                    options={{
+                        title: 'Admin Panel',
                         headerLeft: null,
                         gestureEnabled: false
                     }}
