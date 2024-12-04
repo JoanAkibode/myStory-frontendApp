@@ -5,7 +5,7 @@ import * as Linking from 'expo-linking';
 // Use localhost for web, IP for mobile
 const BACKEND_URL = Platform.OS === 'web' 
     ? 'http://localhost:8000' 
-    : 'https://8958-2a01-cb04-65e-8c00-7c0b-8b47-d97d-9fc4.ngrok-free.app';
+    : 'http://192.168.1.33:8000';
 
 export const googleAuth = {
     initiateLogin: async () => {
@@ -14,8 +14,9 @@ export const googleAuth = {
             console.log('Platform:', Platform.OS);
             console.log('Backend URL:', BACKEND_URL);
 
-            // Add headers and specify method
-            const response = await fetch(`${BACKEND_URL}/auth/google`, {
+            // Add platform parameter to URL
+            const platform = Platform.OS === 'web' ? 'web' : 'mobile';
+            const response = await fetch(`${BACKEND_URL}/auth/google?platform=${platform}`, {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',

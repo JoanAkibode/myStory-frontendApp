@@ -1,58 +1,49 @@
 import React, { useEffect } from 'react';
-import { View, Button, Text, StyleSheet, Platform } from 'react-native';
+import { View, Button, Text, StyleSheet } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import * as Linking from 'expo-linking';
-import Constants from 'expo-constants';
+import { googleAuth } from '../services/auth';  // Import the auth service
 
-export default function LoginScreen({ navigation, route }) {
+export default function LoginScreen({ navigation }) {
     const { login } = useAuth();
 
     useEffect(() => {
-        // Subscribe to deep link events
-        const subscription = Linking.addEventListener('url', handleDeepLink);
-        return () => {
-            subscription.remove();
-        };
-    }, []);
-
-    const handleDeepLink = async (event) => {
-        try {
-            console.log('Received deep link:', event.url);
-            const { queryParams } = Linking.parse(event.url);
-            
-            if (queryParams.data) {
-                const parsedData = JSON.parse(decodeURIComponent(queryParams.data));
-                console.log('Parsed auth data:', parsedData);
-                
-                await login(parsedData.user, parsedData.token);
-                navigation.replace('Home');
+        const handleDeepLink = async (event) => {
+            try {
+                const { queryParams } = Linking.parse(event.url);
+                if (queryParams.data) {
+                    let authData;
+                    if (typeof queryParams.data === 'string') {
+                        authData = JSON.parse(decodeURIComponent(queryParams.data));
+                    } else {
+                        authData = queryParams.data;
+                    }
+                    
+                    if (authData.token && authData.user) {
+                        await login(authData.user, authData.token);
+                        navigation.replace('Dashboard');
+                    }
+                }
+            } catch (error) {
+                console.error('Error handling deep link:', error);
             }
-        } catch (error) {
-            console.error('Error handling deep link:', error);
-        }
-    };
+        };
+
+        Linking.getInitialURL().then(url => {
+            if (url) {
+                handleDeepLink({ url });
+            }
+        });
+
+        const subscription = Linking.addEventListener('url', handleDeepLink);
+        return () => subscription.remove();
+    }, []);
 
     const handleLogin = async () => {
         try {
-            const loginUrl = `http://192.168.1.33:8000/auth/google?platform=mobile`;
-            console.log('Full login URL:', loginUrl);
-            
-            console.log('Making fetch request...');
-            const response = await fetch(loginUrl);
-            console.log('Response received:', response.status);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            console.log('Data from backend:', data);
-            
-            if (data.url) {
-                console.log('Opening Google auth URL:', data.url);
-                await Linking.openURL(data.url);
-            } else {
-                console.log('No URL received from backend');
+            const result = await googleAuth.initiateLogin();
+            if (!result.success) {
+                console.error('Login failed:', result.error);
             }
         } catch (error) {
             console.error('Login error:', error);

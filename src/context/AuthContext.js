@@ -25,19 +25,23 @@ export const AuthProvider = ({ children }) => {
     // Check AsyncStorage for saved user data and token
     // AsyncStorage is React Native's persistent storage system
     const checkStoredAuth = async () => {
+        console.log('Starting stored auth check...');
         try {
-            // Try to get stored user data and token
             const storedUser = await AsyncStorage.getItem('user');
             const storedToken = await AsyncStorage.getItem('token');
             
-            // If both exist, we can restore the user's session
+            console.log('Stored data found:', {
+                hasUser: !!storedUser,
+                hasToken: !!storedToken
+            });
+            
             if (storedUser && storedToken) {
+                console.log('Restoring session with user:', JSON.parse(storedUser));
                 setUser(JSON.parse(storedUser));
             }
         } catch (error) {
             console.error('Error checking stored auth:', error);
         } finally {
-            // Whether successful or not, we're done loading
             setLoading(false);
         }
     };
@@ -45,11 +49,11 @@ export const AuthProvider = ({ children }) => {
     // Login function: stores user data and token in AsyncStorage
     // and updates the user state
     const login = async (userData, token) => {
+        console.log('Logging in with:', { userData, token });
         try {
-            // Store auth data persistently
             await AsyncStorage.setItem('user', JSON.stringify(userData));
             await AsyncStorage.setItem('token', token);
-            // Update current user state
+            console.log('Auth data stored successfully');
             setUser(userData);
         } catch (error) {
             console.error('Error storing auth data:', error);
@@ -58,11 +62,11 @@ export const AuthProvider = ({ children }) => {
 
     // Logout function: removes stored auth data and clears user state
     const logout = async () => {
+        console.log('Logging out...');
         try {
-            // Remove stored auth data
             await AsyncStorage.removeItem('user');
             await AsyncStorage.removeItem('token');
-            // Clear current user state
+            console.log('Auth data removed successfully');
             setUser(null);
         } catch (error) {
             console.error('Error removing auth data:', error);
