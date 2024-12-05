@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { adminStyles } from '../../styles/adminStyles';
 
 export default function WorldsTab() {
     const [worlds, setWorlds] = useState([]);
@@ -23,8 +24,6 @@ export default function WorldsTab() {
     const fetchWorlds = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            console.log('Using token:', token);
-            
             const response = await fetch('http://192.168.1.33:8000/story-worlds', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -40,9 +39,18 @@ export default function WorldsTab() {
             }
             
             const data = await response.json();
-            setWorlds(data);
+            if (Array.isArray(data)) {
+                setWorlds(data);
+            } else if (data && typeof data === 'object') {
+                console.log('Converting single world to array:', data);
+                setWorlds([data]);
+            } else {
+                console.error('Invalid worlds data:', data);
+                setWorlds([]);
+            }
         } catch (error) {
             console.error('Error fetching worlds:', error);
+            setWorlds([]);
         } finally {
             setLoading(false);
         }
@@ -129,61 +137,61 @@ export default function WorldsTab() {
 
     if (loading) {
         return (
-            <View style={styles.container}>
+            <View style={adminStyles.container}>
                 <Text>Loading story worlds...</Text>
             </View>
         );
     }
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.addSection}>
-                <Text style={styles.sectionTitle}>Create New Story World</Text>
+        <ScrollView style={adminStyles.container}>
+            <View style={adminStyles.addSection}>
+                <Text style={adminStyles.sectionTitle}>Create New Story World</Text>
                 <TextInput
-                    style={styles.input}
+                    style={adminStyles.input}
                     placeholder="World Name"
                     value={newWorld.name}
                     onChangeText={text => setNewWorld(prev => ({...prev, name: text}))}
                 />
                 <TextInput
-                    style={[styles.input, styles.textArea]}
+                    style={[adminStyles.input, adminStyles.textArea]}
                     placeholder="Description"
                     value={newWorld.description}
                     onChangeText={text => setNewWorld(prev => ({...prev, description: text}))}
                     multiline
                 />
                 <TextInput
-                    style={styles.input}
+                    style={adminStyles.input}
                     placeholder="Source"
                     value={newWorld.source}
                     onChangeText={text => setNewWorld(prev => ({...prev, source: text}))}
                 />
                 <TextInput
-                    style={[styles.input, styles.textArea]}
+                    style={[adminStyles.input, adminStyles.textArea]}
                     placeholder="Main Themes (comma separated)"
                     value={newWorld.mainThemes.join(', ')}
                     onChangeText={text => setNewWorld(prev => ({...prev, mainThemes: text.split(',').map(t => t.trim())}))}
                     multiline
                 />
                 <TextInput
-                    style={[styles.input, styles.textArea]}
+                    style={[adminStyles.input, adminStyles.textArea]}
                     placeholder="World Rules (comma separated)"
                     value={newWorld.worldRules.join(', ')}
                     onChangeText={text => setNewWorld(prev => ({...prev, worldRules: text.split(',').map(r => r.trim())}))}
                     multiline
                 />
 
-                <Text style={styles.subTitle}>Key Elements</Text>
+                <Text style={adminStyles.subTitle}>Key Elements</Text>
                 {newWorld.keyElements.map((element, index) => (
-                    <View key={index} style={styles.keyElementContainer}>
+                    <View key={index} style={adminStyles.card}>
                         <TextInput
-                            style={styles.input}
+                            style={adminStyles.input}
                             placeholder="Element Name"
                             value={element.name}
                             onChangeText={text => updateKeyElement(index, 'name', text)}
                         />
                         <TextInput
-                            style={[styles.input, styles.textArea]}
+                            style={[adminStyles.input, adminStyles.textArea]}
                             placeholder="Element Description"
                             value={element.description}
                             onChangeText={text => updateKeyElement(index, 'description', text)}
@@ -191,60 +199,43 @@ export default function WorldsTab() {
                         />
                     </View>
                 ))}
-                <TouchableOpacity style={styles.addButton} onPress={addKeyElement}>
-                    <Text style={styles.buttonText}>Add Key Element</Text>
+                <TouchableOpacity style={adminStyles.button} onPress={addKeyElement}>
+                    <Text style={adminStyles.buttonText}>Add Key Element</Text>
                 </TouchableOpacity>
 
-                <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Opening Paragraph (Template first paragraph to set the writing style)"
-                    value={newWorld.openingParagraph}
-                    onChangeText={text => setNewWorld(prev => ({...prev, openingParagraph: text}))}
-                    multiline
-                />
-                
-                <TouchableOpacity style={styles.button} onPress={saveWorld}>
-                    <Text style={styles.buttonText}>Create World</Text>
+                <TouchableOpacity style={adminStyles.button} onPress={saveWorld}>
+                    <Text style={adminStyles.buttonText}>Create World</Text>
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.listSection}>
-                <Text style={styles.sectionTitle}>Story Worlds</Text>
+            <View style={adminStyles.listSection}>
+                <Text style={adminStyles.sectionTitle}>Story Worlds</Text>
                 {worlds.map(world => (
-                    <View key={world._id} style={styles.worldCard}>
-                        <View style={styles.worldHeader}>
-                            <Text style={styles.worldName}>{world.name}</Text>
-                            <TouchableOpacity 
-                                style={[styles.statusBadge, world.active ? styles.activeBadge : styles.inactiveBadge]}
-                                onPress={() => toggleWorldActive(world)}
-                            >
-                                <Text style={styles.statusText}>
-                                    {world.active ? 'Active' : 'Inactive'}
-                                </Text>
-                            </TouchableOpacity>
+                    <View key={world._id} style={adminStyles.card}>
+                        <Text style={adminStyles.cardName}>{world.name}</Text>
+                        <View style={adminStyles.cardDescription}>
+                            <Text style={adminStyles.labelText}>Description</Text>
+                            <Text style={adminStyles.cardValue}>{world.description}</Text>
                         </View>
-                        <Text style={styles.worldDescription}>{world.description}</Text>
-                        <Text style={styles.worldMeta}>Source: {world.source}</Text>
-                        <Text style={styles.worldMeta}>Main Themes: {world.mainThemes.join(', ')}</Text>
-                        <Text style={styles.worldMeta}>World Rules: {world.worldRules.join(', ')}</Text>
+                        <View style={adminStyles.cardDescription}>
+                            <Text style={adminStyles.labelText}>Source</Text>
+                            <Text style={adminStyles.cardValue}>{world.source}</Text>
+                        </View>
+                        <View style={adminStyles.cardDescription}>
+                            <Text style={adminStyles.labelText}>Main Themes</Text>
+                            <Text style={adminStyles.cardValue}>{world.mainThemes.join(', ')}</Text>
+                        </View>
+                        <View style={adminStyles.cardDescription}>
+                            <Text style={adminStyles.labelText}>World Rules</Text>
+                            <Text style={adminStyles.cardValue}>{world.worldRules.join(', ')}</Text>
+                        </View>
                         
-                        <Text style={styles.subTitle}>Key Elements:</Text>
-                        {world.keyElements.map((element, index) => (
-                            <View key={index} style={styles.keyElementDisplay}>
-                                <Text style={styles.elementName}>{element.name}</Text>
-                                <Text style={styles.elementDescription}>{element.description}</Text>
-                            </View>
-                        ))}
-
-                        <Text style={styles.subTitle}>Opening Paragraph:</Text>
-                        <Text style={styles.openingParagraph}>{world.openingParagraph}</Text>
-
-                        <View style={styles.cardActions}>
+                        <View style={adminStyles.cardActions}>
                             <TouchableOpacity 
-                                style={[styles.button, styles.deleteButton]}
+                                style={[adminStyles.button, adminStyles.deleteButton]}
                                 onPress={() => deleteWorld(world._id)}
                             >
-                                <Text style={styles.buttonText}>Delete</Text>
+                                <Text style={adminStyles.buttonText}>Delete</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -252,33 +243,4 @@ export default function WorldsTab() {
             </View>
         </ScrollView>
     );
-}
-
-const styles = StyleSheet.create({
-    // ... existing styles ...
-    textArea: {
-        height: 100,
-        textAlignVertical: 'top',
-    },
-    worldHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    statusBadge: {
-        paddingHorizontal: 10,
-        paddingVertical: 5,
-        borderRadius: 15,
-    },
-    activeBadge: {
-        backgroundColor: '#4CAF50',
-    },
-    inactiveBadge: {
-        backgroundColor: '#666',
-    },
-    statusText: {
-        color: '#fff',
-        fontSize: 12,
-    }
-}); 
+} 

@@ -103,20 +103,20 @@ export default function PlaygroundTab() {
         try {
             const token = await AsyncStorage.getItem('token');
             
-            // Fetch settings
-            const settingsResponse = await fetch('http://192.168.1.33:8000/stories/settings', {
+            // Updated settings fetch
+            const response = await fetch('http://192.168.1.33:8000/story-settings', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
             
-            if (!settingsResponse.ok) {
-                console.error('Settings response:', await settingsResponse.text());
-                throw new Error(`Settings fetch failed: ${settingsResponse.status}`);
+            if (!response.ok) {
+                console.error('Settings response:', await response.text());
+                throw new Error('Settings fetch failed: ' + response.status);
             }
             
-            const settings = await settingsResponse.json();
+            const settings = await response.json();
             if (!Array.isArray(settings)) {
                 console.error('Settings is not an array:', settings);
                 setSettings([]);
@@ -124,7 +124,7 @@ export default function PlaygroundTab() {
                 setSettings(settings);
             }
             
-            // Fetch worlds
+            // Keep the rest of the function the same (worlds and plots fetch)
             const worldsResponse = await fetch('http://192.168.1.33:8000/story-worlds', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -133,7 +133,6 @@ export default function PlaygroundTab() {
             });
             const worlds = await worldsResponse.json();
             
-            // Fetch plots
             const plotsResponse = await fetch('http://192.168.1.33:8000/story-plots', {
                 headers: {
                     'Authorization': `Bearer ${token}`,

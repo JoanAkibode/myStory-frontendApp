@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { adminStyles } from '../../styles/adminStyles';
+import Slider from '@react-native-community/slider';
 
 export default function SettingsTab() {
     const [settings, setSettings] = useState([]);
@@ -8,15 +10,10 @@ export default function SettingsTab() {
     const [newSetting, setNewSetting] = useState({
         name: '',
         systemRole: '',
-        contextTemplate: {
-            withPrevious: '',
-            withoutPrevious: ''
-        },
         model: '',
-        temperature: 0.9,
-        minWords: 200,
-        maxWords: 400,
-        style: '',
+        temperature: 0,
+        minWords: 0,
+        maxWords: 0,
         active: false
     });
 
@@ -27,7 +24,7 @@ export default function SettingsTab() {
     const fetchSettings = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/stories/settings', {
+            const response = await fetch('http://192.168.1.33:8000/story-settings/', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -62,8 +59,8 @@ export default function SettingsTab() {
     const saveSetting = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/stories/settings', {
-                method: 'PUT',
+            const response = await fetch('http://192.168.1.33:8000/story-settings', {
+                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -81,15 +78,10 @@ export default function SettingsTab() {
             setNewSetting({
                 name: '',
                 systemRole: '',
-                contextTemplate: {
-                    withPrevious: '',
-                    withoutPrevious: ''
-                },
                 model: '',
-                temperature: 0.9,
-                minWords: 200,
-                maxWords: 400,
-                style: '',
+                temperature: 0,
+                minWords: 0,
+                maxWords: 0,
                 active: false
             });
         } catch (error) {
@@ -100,7 +92,7 @@ export default function SettingsTab() {
     const deleteSetting = async (id) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            await fetch(`http://192.168.1.33:8000/api/admin/settings/${id}`, {
+            await fetch(`http://192.168.1.33:8000/story-settings/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -115,7 +107,7 @@ export default function SettingsTab() {
     const toggleSettingActive = async (setting) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/api/admin/settings/${setting._id}`, {
+            const response = await fetch(`http://192.168.1.33:8000/story-settings/${setting._id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -123,8 +115,14 @@ export default function SettingsTab() {
                 },
                 body: JSON.stringify({ ...setting, active: !setting.active })
             });
-            const updatedSetting = await response.json();
-            setSettings(prev => prev.map(s => s._id === setting._id ? updatedSetting : s));
+            
+            if (!response.ok) {
+                throw new Error('Failed to update setting');
+            }
+
+            // The response now contains all updated settings
+            const updatedSettings = await response.json();
+            setSettings(updatedSettings);
         } catch (error) {
             console.error('Error toggling setting active state:', error);
         }
@@ -132,125 +130,129 @@ export default function SettingsTab() {
 
     if (loading) {
         return (
-            <View style={styles.container}>
+            <View style={adminStyles.container}>
                 <Text>Loading story settings...</Text>
             </View>
         );
     }
 
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.addSection}>
-                <Text style={styles.sectionTitle}>Create New Story Setting</Text>
+        <ScrollView style={adminStyles.container}>
+            <View style={adminStyles.addSection}>
+                <Text style={adminStyles.sectionTitle}>Create New Story Setting</Text>
+                
+                <Text style={adminStyles.inputLabel}>Name your setting configuration:</Text>
                 <TextInput
-                    style={styles.input}
-                    placeholder="Setting Name"
+                    style={adminStyles.input}
+                    placeholder="e.g., 'Creative Mode' or 'Professional Style'"
                     value={newSetting.name}
                     onChangeText={text => setNewSetting(prev => ({...prev, name: text}))}
                 />
+
+                <Text style={adminStyles.inputLabel}>Define how the AI should behave:</Text>
                 <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="System Role"
+                    style={[adminStyles.input, adminStyles.textArea]}
+                    placeholder="e.g., 'You are a creative storyteller. Write engaging stories in a casual, friendly tone.'"
                     value={newSetting.systemRole}
                     onChangeText={text => setNewSetting(prev => ({...prev, systemRole: text}))}
                     multiline
                 />
 
-                <Text style={styles.subTitle}>Context Templates</Text>
+                <Text style={adminStyles.subTitle}>Model Settings</Text>
+                
+                <Text style={adminStyles.inputLabel}>Choose AI Model:</Text>
                 <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="With Previous Context"
-                    value={newSetting.contextTemplate.withPrevious}
-                    onChangeText={text => setNewSetting(prev => ({
-                        ...prev,
-                        contextTemplate: { ...prev.contextTemplate, withPrevious: text }
-                    }))}
-                    multiline
-                />
-                <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Without Previous Context"
-                    value={newSetting.contextTemplate.withoutPrevious}
-                    onChangeText={text => setNewSetting(prev => ({
-                        ...prev,
-                        contextTemplate: { ...prev.contextTemplate, withoutPrevious: text }
-                    }))}
-                    multiline
-                />
-
-                <Text style={styles.subTitle}>Model Settings</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Model (e.g., gpt-4)"
+                    style={adminStyles.input}
+                    placeholder="gpt-3.5-turbo (faster/cheaper) or gpt-4 (smarter/better)"
                     value={newSetting.model}
                     onChangeText={text => setNewSetting(prev => ({...prev, model: text}))}
                 />
+
+                <Text style={adminStyles.inputLabel}>Set AI Creativity Level:</Text>
+                <View style={adminStyles.sliderContainer}>
+                    <Text style={adminStyles.sliderValue}>{newSetting.temperature.toFixed(2)}</Text>
+                    <Slider
+                        style={adminStyles.slider}
+                        minimumValue={0}
+                        maximumValue={1}
+                        step={0.1}
+                        value={newSetting.temperature}
+                        onValueChange={(value) => setNewSetting(prev => ({...prev, temperature: value}))}
+                        minimumTrackTintColor="#007AFF"
+                        maximumTrackTintColor="#ddd"
+                    />
+                    <View style={adminStyles.sliderLabels}>
+                        <Text style={adminStyles.sliderLabel}>Focused</Text>
+                        <Text style={adminStyles.sliderLabel}>Creative</Text>
+                    </View>
+                </View>
+
+                <Text style={adminStyles.inputLabel}>Set Story Length:</Text>
                 <TextInput
-                    style={styles.input}
-                    placeholder="Temperature (0-2)"
-                    value={newSetting.temperature.toString()}
-                    onChangeText={text => setNewSetting(prev => ({...prev, temperature: parseFloat(text) || 0.9}))}
-                    keyboardType="numeric"
-                />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Min Words"
+                    style={adminStyles.input}
+                    placeholder="Minimum words (200 for short, 500 for detailed)"
                     value={newSetting.minWords.toString()}
-                    onChangeText={text => setNewSetting(prev => ({...prev, minWords: parseInt(text) || 200}))}
+                    onChangeText={(text) => setNewSetting(prev => ({...prev, minWords: parseInt(text) || 0}))}
                     keyboardType="numeric"
                 />
                 <TextInput
-                    style={styles.input}
-                    placeholder="Max Words"
+                    style={adminStyles.input}
+                    placeholder="Maximum words (400 for short, 1000 for detailed)"
                     value={newSetting.maxWords.toString()}
-                    onChangeText={text => setNewSetting(prev => ({...prev, maxWords: parseInt(text) || 400}))}
+                    onChangeText={(text) => setNewSetting(prev => ({...prev, maxWords: parseInt(text) || 0}))}
                     keyboardType="numeric"
-                />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Style"
-                    value={newSetting.style}
-                    onChangeText={text => setNewSetting(prev => ({...prev, style: text}))}
                 />
                 
-                <TouchableOpacity style={styles.button} onPress={saveSetting}>
-                    <Text style={styles.buttonText}>Create Setting</Text>
+                <TouchableOpacity style={adminStyles.button} onPress={saveSetting}>
+                    <Text style={adminStyles.buttonText}>Create Setting</Text>
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.listSection}>
-                <Text style={styles.sectionTitle}>Story Settings</Text>
+            <View style={adminStyles.listSection}>
+                <Text style={adminStyles.sectionTitle}>Story Settings</Text>
                 {Array.isArray(settings) && settings.map(setting => (
-                    <View key={setting._id} style={styles.settingCard}>
-                        <View style={styles.settingHeader}>
-                            <Text style={styles.settingName}>{setting.name}</Text>
+                    <View key={setting._id} style={adminStyles.card}>
+                        <View style={adminStyles.cardHeader}>
+                            <Text style={adminStyles.cardName}>{setting.name}</Text>
                             <TouchableOpacity 
-                                style={[styles.statusBadge, setting.active ? styles.activeBadge : styles.inactiveBadge]}
+                                style={[
+                                    adminStyles.statusBadge, 
+                                    setting.active ? adminStyles.activeBadge : adminStyles.inactiveBadge
+                                ]}
                                 onPress={() => toggleSettingActive(setting)}
                             >
-                                <Text style={styles.statusText}>
+                                <Text style={adminStyles.statusText}>
                                     {setting.active ? 'Active' : 'Inactive'}
                                 </Text>
                             </TouchableOpacity>
                         </View>
-                        <Text style={styles.settingMeta}>System Role: {setting.systemRole}</Text>
-                        <Text style={styles.settingMeta}>Model: {setting.model}</Text>
-                        <Text style={styles.settingMeta}>Temperature: {setting.temperature}</Text>
-                        <Text style={styles.settingMeta}>Words: {setting.minWords}-{setting.maxWords}</Text>
-                        <Text style={styles.settingMeta}>Style: {setting.style}</Text>
                         
-                        <Text style={styles.subTitle}>Context Templates:</Text>
-                        <Text style={styles.settingMeta}>With Previous:</Text>
-                        <Text style={styles.templateText}>{setting.contextTemplate.withPrevious}</Text>
-                        <Text style={styles.settingMeta}>Without Previous:</Text>
-                        <Text style={styles.templateText}>{setting.contextTemplate.withoutPrevious}</Text>
+                        <View style={adminStyles.cardDescription}>
+                            <Text style={adminStyles.labelText}>System Role</Text>
+                            <Text style={adminStyles.cardValue}>{setting.systemRole}</Text>
+                        </View>
 
-                        <View style={styles.cardActions}>
+                        <View style={adminStyles.cardDescription}>
+                            <Text style={adminStyles.labelText}>Model</Text>
+                            <Text style={adminStyles.cardValue}>{setting.model}</Text>
+                        </View>
+
+                        <View style={adminStyles.cardDescription}>
+                            <Text style={adminStyles.labelText}>Temperature</Text>
+                            <Text style={adminStyles.cardValue}>{setting.temperature}</Text>
+                        </View>
+
+                        <View style={adminStyles.cardDescription}>
+                            <Text style={adminStyles.labelText}>Word Range</Text>
+                            <Text style={adminStyles.cardValue}>{setting.minWords}-{setting.maxWords}</Text>
+                        </View>
+
+                        <View style={adminStyles.cardActions}>
                             <TouchableOpacity 
-                                style={[styles.button, styles.deleteButton]}
+                                style={[adminStyles.button, adminStyles.deleteButton]}
                                 onPress={() => deleteSetting(setting._id)}
                             >
-                                <Text style={styles.buttonText}>Delete</Text>
+                                <Text style={adminStyles.buttonText}>Delete</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -258,67 +260,4 @@ export default function SettingsTab() {
             </View>
         </ScrollView>
     );
-}
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    addSection: {
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    listSection: {
-        padding: 20,
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 15,
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 4,
-        padding: 10,
-        marginBottom: 10,
-    },
-    button: {
-        backgroundColor: '#007AFF',
-        padding: 10,
-        borderRadius: 4,
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: '#fff',
-        fontWeight: '500',
-    },
-    settingCard: {
-        backgroundColor: '#f5f5f5',
-        padding: 15,
-        borderRadius: 8,
-        marginBottom: 10,
-    },
-    settingName: {
-        fontSize: 16,
-        fontWeight: '500',
-        marginBottom: 5,
-    },
-    settingDescription: {
-        color: '#666',
-        marginBottom: 10,
-    },
-    cardActions: {
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
-        gap: 10,
-    },
-    editButton: {
-        backgroundColor: '#4CAF50',
-    },
-    deleteButton: {
-        backgroundColor: '#f44336',
-    },
-}); 
+} 
