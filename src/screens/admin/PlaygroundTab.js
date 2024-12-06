@@ -1,99 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { adminStyles } from '../../styles/adminStyles';
 
 export default function PlaygroundTab() {
-    const [fakeUsers, setFakeUsers] = useState([]);
+    const [testUsers, setTestUsers] = useState([]);
     const [selectedUser, setSelectedUser] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState([]);
-    const [worlds, setWorlds] = useState([]);
-    const [plots, setPlots] = useState([]);
-    const [numberOfDays, setNumberOfDays] = useState('1');
-    const [selectedSettings, setSelectedSettings] = useState({
-        world: null,
-        plot: null,
-        setting: null
-    });
+    const [selectedSettings, setSelectedSettings] = useState(null);
+    const [numberOfDays, setNumberOfDays] = useState('7');
     const [generatedStories, setGeneratedStories] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [selectedWorld, setSelectedWorld] = useState(null);
+    const [userEvents, setUserEvents] = useState([]);
+    const [plots, setPlots] = useState([]);
+    const [worlds, setWorlds] = useState([]);
     const [selectedPlot, setSelectedPlot] = useState(null);
-    const [selectedSetting, setSelectedSetting] = useState(null);
+    const [selectedWorld, setSelectedWorld] = useState(null);
 
     useEffect(() => {
-        fetchFakeUsers();
+        fetchTestUsers();
         fetchAvailableParameters();
     }, []);
 
-    const fetchFakeUsers = async () => {
+    const fetchTestUsers = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-plots', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            
-            if (!response.ok) {
-                console.error('Response status:', response.status);
-                const text = await response.text();
-                console.error('Response body:', text);
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            setFakeUsers(data);
-        } catch (error) {
-            console.error('Error fetching fake users:', error);
-        }
-    };
-
-    const seedNewPersonas = async () => {
-        try {
-            setLoading(true);
-            const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/api/admin/reset-test-users', {
-                method: 'POST',
+            const response = await fetch('http://192.168.1.33:8000/api/admin/test-users/', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
             const data = await response.json();
-            console.log('New personas created:', data);
-            // Refresh fake users list
-            await fetchFakeUsers();
+            
+            if (Array.isArray(data)) {
+                setTestUsers(data);
+            } else if (data && typeof data === 'object') {
+                setTestUsers([data]);
+            } else {
+                console.error('Invalid test users data:', data);
+                setTestUsers([]);
+            }
         } catch (error) {
-            console.error('Error seeding personas:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const generateStoriesForDays = async () => {
-        if (!selectedUser) {
-            console.error('No user selected');
-            return;
-        }
-
-        try {
-            setLoading(true);
-            const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/api/admin/generate-stories/${selectedUser._id}`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    days: parseInt(numberOfDays),
-                    settings: selectedSettings
-                })
-            });
-            const data = await response.json();
-            setGeneratedStories(data.stories);
-        } catch (error) {
-            console.error('Error generating stories:', error);
+            console.error('Error fetching test users:', error);
+            setTestUsers([]);
         } finally {
             setLoading(false);
         }
@@ -103,36 +52,17 @@ export default function PlaygroundTab() {
         try {
             const token = await AsyncStorage.getItem('token');
             
-            // Updated settings fetch
-            const response = await fetch('http://192.168.1.33:8000/story-settings', {
+            // Fetch settings
+            const settingsResponse = await fetch('http://192.168.1.33:8000/story-settings', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
-            
-            if (!response.ok) {
-                console.error('Settings response:', await response.text());
-                throw new Error('Settings fetch failed: ' + response.status);
-            }
-            
-            const settings = await response.json();
-            if (!Array.isArray(settings)) {
-                console.error('Settings is not an array:', settings);
-                setSettings([]);
-            } else {
-                setSettings(settings);
-            }
-            
-            // Keep the rest of the function the same (worlds and plots fetch)
-            const worldsResponse = await fetch('http://192.168.1.33:8000/story-worlds', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-            const worlds = await worldsResponse.json();
-            
+            const settings = await settingsResponse.json();
+            setSettings(settings);
+
+            // Fetch plots
             const plotsResponse = await fetch('http://192.168.1.33:8000/story-plots', {
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -140,296 +70,247 @@ export default function PlaygroundTab() {
                 }
             });
             const plots = await plotsResponse.json();
-            
-            setWorlds(worlds);
             setPlots(plots);
+
+            // Fetch worlds
+            const worldsResponse = await fetch('http://192.168.1.33:8000/story-worlds', {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            const worlds = await worldsResponse.json();
+            setWorlds(worlds);
+
         } catch (error) {
             console.error('Error fetching parameters:', error);
-            setSettings([]);
-            setWorlds([]);
-            setPlots([]);
         }
     };
 
-    const ParameterSelection = () => (
-        <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Story Parameters</Text>
-            
-            {/* World Selection */}
-            <View style={styles.parameterGroup}>
-                <Text style={styles.parameterLabel}>Story World</Text>
-                <ScrollView horizontal style={styles.optionsList}>
-                    {Array.isArray(worlds) && worlds.map(world => (
-                        <TouchableOpacity 
-                            key={world._id}
-                            style={[
-                                styles.optionCard,
-                                selectedWorld?._id === world._id && styles.selectedOption
-                            ]}
-                            onPress={() => {
-                                setSelectedWorld(world);
-                                setSelectedSettings(prev => ({...prev, world: world._id}));
-                            }}
-                        >
-                            <Text style={styles.optionTitle}>{world.name}</Text>
-                            <Text style={styles.optionDetail}>Genre: {world.genre}</Text>
-                            <Text style={styles.optionDetail}>
-                                Themes: {world.themes?.join(', ')}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
+    const fetchUserEvents = async (userId) => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const response = await fetch(`http://192.168.1.33:8000/api/admin/test-users/${userId}/events`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            if (Array.isArray(data)) {
+                setUserEvents(data);
+            } else {
+                console.error('Invalid events data:', data);
+                setUserEvents([]);
+            }
+        } catch (error) {
+            console.error('Error fetching user events:', error);
+            setUserEvents([]);
+        }
+    };
 
-            {/* Settings Selection */}
-            <View style={styles.parameterGroup}>
-                <Text style={styles.parameterLabel}>Story Settings</Text>
-                <ScrollView horizontal style={styles.optionsList}>
-                    {Array.isArray(settings) && settings.map(setting => (
-                        <TouchableOpacity 
-                            key={setting._id}
-                            style={[
-                                styles.optionCard,
-                                selectedSetting?._id === setting._id && styles.selectedOption
-                            ]}
-                            onPress={() => {
-                                setSelectedSetting(setting);
-                                setSelectedSettings(prev => ({...prev, setting: setting._id}));
-                            }}
-                        >
-                            <Text style={styles.optionTitle}>{setting.name}</Text>
-                            <Text style={styles.optionDetail}>{setting.description}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
+    const handleUserSelect = (user) => {
+        setSelectedUser(user);
+        fetchUserEvents(user._id);
+    };
 
-            {/* Plot Selection */}
-            <View style={styles.parameterGroup}>
-                <Text style={styles.parameterLabel}>Story Plot</Text>
-                <ScrollView horizontal style={styles.optionsList}>
-                    {Array.isArray(plots) && plots.map(plot => (
-                        <TouchableOpacity 
-                            key={plot._id}
-                            style={[
-                                styles.optionCard,
-                                selectedPlot?._id === plot._id && styles.selectedOption
-                            ]}
-                            onPress={() => {
-                                setSelectedPlot(plot);
-                                setSelectedSettings(prev => ({...prev, plot: plot._id}));
-                            }}
-                        >
-                            <Text style={styles.optionTitle}>{plot.name}</Text>
-                            <Text style={styles.optionDetail}>Type: {plot.type}</Text>
-                            <Text style={styles.optionDetail}>
-                                Conflict: {plot.mainConflict}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+    const generateStories = async () => {
+        if (!selectedUser || !selectedSettings) {
+            alert('Please select a user and settings first');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const token = await AsyncStorage.getItem('token');
+            const stories = [];
+
+            // Generate stories one by one
+            for (let i = 0; i < parseInt(numberOfDays); i++) {
+                const response = await fetch('http://192.168.1.33:8000/api/admin/generate-stories', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        userId: selectedUser._id,
+                        settingsId: selectedSettings._id,
+                        plotId: selectedPlot?._id,
+                        worldId: selectedWorld?._id,
+                        dayNumber: i + 1
+                    })
+                });
+                const data = await response.json();
+                if (data.story) {
+                    stories.push({ ...data.story, dayNumber: i + 1 });
+                }
+            }
+            setGeneratedStories(stories);
+        } catch (error) {
+            console.error('Error generating stories:', error);
+            alert('Failed to generate stories');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const resetTestUsers = async () => {
+        try {
+            setLoading(true);
+            const token = await AsyncStorage.getItem('token');
+            const response = await fetch('http://192.168.1.33:8000/api/admin/test-users/reset', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const data = await response.json();
+            setTestUsers(data);
+            setSelectedUser(null); // Reset selection
+        } catch (error) {
+            console.error('Error resetting test users:', error);
+            alert('Failed to reset test users');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <View style={adminStyles.container}>
+                <Text>Loading...</Text>
             </View>
-        </View>
-    );
+        );
+    }
 
     return (
-        <ScrollView style={styles.container}>
-            {/* Persona Management */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Persona Management</Text>
-                <TouchableOpacity 
-                    style={[styles.button, loading && styles.buttonDisabled]}
-                    onPress={seedNewPersonas}
-                    disabled={loading}
-                >
-                    <Text style={styles.buttonText}>
-                        {loading ? 'Creating Personas...' : 'Generate New Personas'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* User Selection */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Select Test User</Text>
-                <ScrollView horizontal style={styles.usersList}>
-                    {fakeUsers.map(user => (
-                        <TouchableOpacity 
+        <ScrollView style={adminStyles.container}>
+            <View style={adminStyles.section}>
+                <View style={adminStyles.headerSection}>
+                    <Text style={adminStyles.sectionTitle}>Test Users</Text>
+                    <TouchableOpacity 
+                        style={[adminStyles.button, adminStyles.resetButton]}
+                        onPress={resetTestUsers}
+                    >
+                        <Text style={adminStyles.buttonText}>Reset Test Users</Text>
+                    </TouchableOpacity>
+                </View>
+                <ScrollView horizontal style={adminStyles.userList}>
+                    {Array.isArray(testUsers) && testUsers.map(user => (
+                        <TouchableOpacity
                             key={user._id}
                             style={[
-                                styles.userCard,
-                                selectedUser?._id === user._id && styles.selectedUser
+                                adminStyles.userCard,
+                                selectedUser?._id === user._id && adminStyles.selectedCard
                             ]}
-                            onPress={() => setSelectedUser(user)}
+                            onPress={() => handleUserSelect(user)}
                         >
-                            <Text style={styles.userName}>{user.name}</Text>
-                            <Text style={styles.userEmail}>{user.email}</Text>
-                            <Text style={styles.userPersona}>{user.persona}</Text>
+                            <Text style={adminStyles.userName}>{user.name}</Text>
+                            <Text style={adminStyles.userEmail}>{user.email}</Text>
                         </TouchableOpacity>
                     ))}
                 </ScrollView>
-            </View>
 
-            {/* Add Parameter Selection */}
-            <ParameterSelection />
+                {selectedUser && userEvents.length > 0 && (
+                    <View style={adminStyles.section}>
+                        <Text style={adminStyles.sectionTitle}>User Events</Text>
+                        <ScrollView style={adminStyles.eventsList}>
+                            {userEvents.map(event => (
+                                <View key={event._id} style={adminStyles.eventCard}>
+                                    <Text style={adminStyles.eventTitle}>{event.summary}</Text>
+                                    <Text style={adminStyles.eventTime}>
+                                        {new Date(event.start.dateTime).toLocaleString()}
+                                    </Text>
+                                    <Text style={adminStyles.eventLocation}>{event.location}</Text>
+                                    <Text style={adminStyles.eventDescription}>{event.description}</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
 
-            {/* Story Generation */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Story Generation</Text>
+                <Text style={adminStyles.sectionTitle}>Story World</Text>
+                <ScrollView horizontal style={adminStyles.settingsList}>
+                    {worlds.map(world => (
+                        <TouchableOpacity
+                            key={world._id}
+                            style={[
+                                adminStyles.settingCard,
+                                selectedWorld?._id === world._id && adminStyles.selectedCard
+                            ]}
+                            onPress={() => setSelectedWorld(world)}
+                        >
+                            <Text style={adminStyles.settingName}>{world.name}</Text>
+                            <Text style={adminStyles.settingDetail}>{world.description}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+
+                <Text style={adminStyles.sectionTitle}>Story Plot</Text>
+                <ScrollView horizontal style={adminStyles.settingsList}>
+                    {plots.map(plot => (
+                        <TouchableOpacity
+                            key={plot._id}
+                            style={[
+                                adminStyles.settingCard,
+                                selectedPlot?._id === plot._id && adminStyles.selectedCard
+                            ]}
+                            onPress={() => setSelectedPlot(plot)}
+                        >
+                            <Text style={adminStyles.settingName}>{plot.name}</Text>
+                            <Text style={adminStyles.settingDetail}>{plot.description}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+
+                <Text style={adminStyles.sectionTitle}>Story Settings</Text>
+                <ScrollView horizontal style={adminStyles.settingsList}>
+                    {settings.map(setting => (
+                        <TouchableOpacity
+                            key={setting._id}
+                            style={[
+                                adminStyles.settingCard,
+                                selectedSettings?._id === setting._id && adminStyles.selectedCard
+                            ]}
+                            onPress={() => setSelectedSettings(setting)}
+                        >
+                            <Text style={adminStyles.settingName}>{setting.name}</Text>
+                            <Text style={adminStyles.settingDetail}>
+                                Model: {setting.model}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+
+                <Text style={adminStyles.sectionTitle}>Generate Stories</Text>
                 <TextInput
-                    style={styles.input}
-                    placeholder="Number of days to generate"
+                    style={adminStyles.input}
+                    placeholder="Number of days"
                     value={numberOfDays}
                     onChangeText={setNumberOfDays}
                     keyboardType="numeric"
                 />
-                <TouchableOpacity 
-                    style={[
-                        styles.button, 
-                        (!selectedUser || !selectedWorld || !selectedPlot || loading) && styles.buttonDisabled
-                    ]}
-                    onPress={generateStoriesForDays}
-                    disabled={!selectedUser || !selectedWorld || !selectedPlot || loading}
-                >
-                    <Text style={styles.buttonText}>
-                        {loading ? 'Generating...' : `Generate ${numberOfDays} Days of Stories`}
-                    </Text>
-                </TouchableOpacity>
-            </View>
 
-            {/* Generated Stories */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Generated Stories</Text>
-                {generatedStories.map((story, index) => (
-                    <View key={index} style={styles.storyCard}>
-                        <Text style={styles.storyDay}>Day {story.dayNumber}</Text>
-                        <Text style={styles.storyContent}>{story.content}</Text>
-                        <Text style={styles.storyMeta}>
-                            Generated: {new Date(story.createdAt).toLocaleString()}
-                        </Text>
+                <TouchableOpacity 
+                    style={adminStyles.button}
+                    onPress={generateStories}
+                    disabled={!selectedUser || !selectedSettings}
+                >
+                    <Text style={adminStyles.buttonText}>Generate Stories</Text>
+                </TouchableOpacity>
+
+                {generatedStories.length > 0 && (
+                    <View style={adminStyles.storiesList}>
+                        <Text style={adminStyles.sectionTitle}>Generated Stories</Text>
+                        {generatedStories.map((story, index) => (
+                            <View key={story._id || index} style={adminStyles.storyCard}>
+                                <Text style={adminStyles.storyDay}>Day {story.dayNumber}</Text>
+                                <Text style={adminStyles.storyContent}>{story.content}</Text>
+                            </View>
+                        ))}
                     </View>
-                ))}
+                )}
             </View>
         </ScrollView>
     );
-}
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#fff',
-    },
-    section: {
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 15,
-    },
-    usersList: {
-        flexDirection: 'row',
-        marginBottom: 15,
-    },
-    userCard: {
-        backgroundColor: '#f5f5f5',
-        padding: 15,
-        borderRadius: 8,
-        marginRight: 10,
-        minWidth: 200,
-    },
-    selectedUser: {
-        backgroundColor: '#e3f2fd',
-        borderWidth: 2,
-        borderColor: '#2196f3',
-    },
-    userName: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 5,
-    },
-    userEmail: {
-        color: '#666',
-        marginBottom: 5,
-    },
-    userPersona: {
-        fontStyle: 'italic',
-        color: '#444',
-    },
-    input: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 4,
-        padding: 10,
-        marginBottom: 10,
-    },
-    button: {
-        backgroundColor: '#007AFF',
-        padding: 15,
-        borderRadius: 4,
-        alignItems: 'center',
-    },
-    buttonDisabled: {
-        backgroundColor: '#ccc',
-    },
-    buttonText: {
-        color: '#fff',
-        fontWeight: '500',
-    },
-    storyCard: {
-        backgroundColor: '#f5f5f5',
-        padding: 15,
-        borderRadius: 8,
-        marginBottom: 10,
-    },
-    storyDay: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 5,
-    },
-    storyContent: {
-        color: '#333',
-        marginBottom: 10,
-    },
-    storyMeta: {
-        color: '#666',
-        fontSize: 12,
-        fontStyle: 'italic',
-    },
-    parameterGroup: {
-        marginBottom: 20,
-    },
-    parameterLabel: {
-        fontSize: 16,
-        fontWeight: '500',
-        marginBottom: 10,
-    },
-    optionsList: {
-        flexDirection: 'row',
-        marginBottom: 10,
-    },
-    optionCard: {
-        backgroundColor: '#f5f5f5',
-        padding: 15,
-        borderRadius: 8,
-        marginRight: 10,
-        minWidth: 200,
-        maxWidth: 300,
-    },
-    selectedOption: {
-        backgroundColor: '#e3f2fd',
-        borderWidth: 2,
-        borderColor: '#2196f3',
-    },
-    optionTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 5,
-    },
-    optionDetail: {
-        color: '#666',
-        fontSize: 14,
-        marginBottom: 3,
-    },
-}); 
+} 
