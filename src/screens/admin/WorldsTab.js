@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { adminStyles } from '../../styles/adminStyles';
 
 export default function WorldsTab() {
     const [worlds, setWorlds] = useState([]);
@@ -10,10 +9,10 @@ export default function WorldsTab() {
         name: '',
         description: '',
         source: '',
+        openingParagraph: '',
         mainThemes: [],
         worldRules: [],
         keyElements: [],
-        openingParagraph: '',
         active: true
     });
 
@@ -30,27 +29,10 @@ export default function WorldsTab() {
                     'Content-Type': 'application/json'
                 }
             });
-            
-            if (!response.ok) {
-                console.error('Response status:', response.status);
-                const text = await response.text();
-                console.error('Response body:', text);
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
             const data = await response.json();
-            if (Array.isArray(data)) {
-                setWorlds(data);
-            } else if (data && typeof data === 'object') {
-                console.log('Converting single world to array:', data);
-                setWorlds([data]);
-            } else {
-                console.error('Invalid worlds data:', data);
-                setWorlds([]);
-            }
+            setWorlds(data);
         } catch (error) {
             console.error('Error fetching worlds:', error);
-            setWorlds([]);
         } finally {
             setLoading(false);
         }
@@ -67,27 +49,34 @@ export default function WorldsTab() {
                 },
                 body: JSON.stringify(newWorld)
             });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to create world');
+            }
+
             const data = await response.json();
             setWorlds(prev => [...prev, data]);
             setNewWorld({
                 name: '',
                 description: '',
                 source: '',
+                openingParagraph: '',
                 mainThemes: [],
                 worldRules: [],
                 keyElements: [],
-                openingParagraph: '',
                 active: true
             });
         } catch (error) {
             console.error('Error saving world:', error);
+            alert(error.message);
         }
     };
 
     const deleteWorld = async (id) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            await fetch(`http://192.168.1.33:8000/api/admin/worlds/${id}`, {
+            await fetch(`http://192.168.1.33:8000/story-worlds/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -102,7 +91,7 @@ export default function WorldsTab() {
     const toggleWorldActive = async (world) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/api/admin/worlds/${world._id}`, {
+            const response = await fetch(`http://192.168.1.33:8000/story-worlds/${world._id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -117,125 +106,93 @@ export default function WorldsTab() {
         }
     };
 
-    const addKeyElement = () => {
-        setNewWorld(prev => ({
-            ...prev,
-            keyElements: [...prev.keyElements, { name: '', description: '' }]
-        }));
-    };
-
-    const updateKeyElement = (index, field, value) => {
-        setNewWorld(prev => {
-            const updatedElements = [...prev.keyElements];
-            updatedElements[index] = {
-                ...updatedElements[index],
-                [field]: value
-            };
-            return { ...prev, keyElements: updatedElements };
-        });
-    };
-
     if (loading) {
         return (
-            <View style={adminStyles.container}>
+            <View style={styles.container}>
                 <Text>Loading story worlds...</Text>
             </View>
         );
     }
 
     return (
-        <ScrollView style={adminStyles.container}>
-            <View style={adminStyles.addSection}>
-                <Text style={adminStyles.sectionTitle}>Create New Story World</Text>
+        <ScrollView style={styles.container}>
+            <View style={styles.addSection}>
+                <Text style={styles.sectionTitle}>Create New World</Text>
                 <TextInput
-                    style={adminStyles.input}
+                    style={styles.input}
                     placeholder="World Name"
                     value={newWorld.name}
                     onChangeText={text => setNewWorld(prev => ({...prev, name: text}))}
                 />
                 <TextInput
-                    style={[adminStyles.input, adminStyles.textArea]}
+                    style={styles.input}
+                    placeholder="Source"
+                    value={newWorld.source}
+                    onChangeText={text => setNewWorld(prev => ({...prev, source: text}))}
+                />
+                <TextInput
+                    style={[styles.input, styles.textArea]}
                     placeholder="Description"
                     value={newWorld.description}
                     onChangeText={text => setNewWorld(prev => ({...prev, description: text}))}
                     multiline
                 />
                 <TextInput
-                    style={adminStyles.input}
-                    placeholder="Source"
-                    value={newWorld.source}
-                    onChangeText={text => setNewWorld(prev => ({...prev, source: text}))}
+                    style={[styles.input, styles.textArea]}
+                    placeholder="Opening Paragraph"
+                    value={newWorld.openingParagraph}
+                    onChangeText={text => setNewWorld(prev => ({...prev, openingParagraph: text}))}
+                    multiline
                 />
                 <TextInput
-                    style={[adminStyles.input, adminStyles.textArea]}
+                    style={[styles.input, styles.textArea]}
                     placeholder="Main Themes (comma separated)"
                     value={newWorld.mainThemes.join(', ')}
                     onChangeText={text => setNewWorld(prev => ({...prev, mainThemes: text.split(',').map(t => t.trim())}))}
                     multiline
                 />
                 <TextInput
-                    style={[adminStyles.input, adminStyles.textArea]}
+                    style={[styles.input, styles.textArea]}
                     placeholder="World Rules (comma separated)"
                     value={newWorld.worldRules.join(', ')}
                     onChangeText={text => setNewWorld(prev => ({...prev, worldRules: text.split(',').map(r => r.trim())}))}
                     multiline
                 />
-
-                <Text style={adminStyles.subTitle}>Key Elements</Text>
-                {newWorld.keyElements.map((element, index) => (
-                    <View key={index} style={adminStyles.card}>
-                        <TextInput
-                            style={adminStyles.input}
-                            placeholder="Element Name"
-                            value={element.name}
-                            onChangeText={text => updateKeyElement(index, 'name', text)}
-                        />
-                        <TextInput
-                            style={[adminStyles.input, adminStyles.textArea]}
-                            placeholder="Element Description"
-                            value={element.description}
-                            onChangeText={text => updateKeyElement(index, 'description', text)}
-                            multiline
-                        />
-                    </View>
-                ))}
-                <TouchableOpacity style={adminStyles.button} onPress={addKeyElement}>
-                    <Text style={adminStyles.buttonText}>Add Key Element</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={adminStyles.button} onPress={saveWorld}>
-                    <Text style={adminStyles.buttonText}>Create World</Text>
+                <TouchableOpacity style={styles.button} onPress={saveWorld}>
+                    <Text style={styles.buttonText}>Create World</Text>
                 </TouchableOpacity>
             </View>
 
-            <View style={adminStyles.listSection}>
-                <Text style={adminStyles.sectionTitle}>Story Worlds</Text>
+            <View style={styles.listSection}>
+                <Text style={styles.sectionTitle}>Story Worlds</Text>
                 {worlds.map(world => (
-                    <View key={world._id} style={adminStyles.card}>
-                        <Text style={adminStyles.cardName}>{world.name}</Text>
-                        <View style={adminStyles.cardDescription}>
-                            <Text style={adminStyles.labelText}>Description</Text>
-                            <Text style={adminStyles.cardValue}>{world.description}</Text>
-                        </View>
-                        <View style={adminStyles.cardDescription}>
-                            <Text style={adminStyles.labelText}>Source</Text>
-                            <Text style={adminStyles.cardValue}>{world.source}</Text>
-                        </View>
-                        <View style={adminStyles.cardDescription}>
-                            <Text style={adminStyles.labelText}>Main Themes</Text>
-                            <Text style={adminStyles.cardValue}>{world.mainThemes.join(', ')}</Text>
-                        </View>
-                        <View style={adminStyles.cardDescription}>
-                            <Text style={adminStyles.labelText}>World Rules</Text>
-                            <Text style={adminStyles.cardValue}>{world.worldRules.join(', ')}</Text>
-                        </View>
-                        
-                        <View style={adminStyles.cardActions}>
+                    <View key={world._id} style={styles.worldCard}>
+                        <View style={styles.worldHeader}>
+                            <Text style={styles.worldName}>{world.name}</Text>
                             <TouchableOpacity 
-                                style={[adminStyles.button, adminStyles.deleteButton]}
+                                style={[styles.statusBadge, world.active ? styles.activeBadge : styles.inactiveBadge]}
+                                onPress={() => toggleWorldActive(world)}
+                            >
+                                <Text style={styles.statusText}>
+                                    {world.active ? 'Active' : 'Inactive'}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                        <Text style={styles.worldDescription}>{world.description}</Text>
+                        <Text style={styles.worldMeta}>Source: {world.source}</Text>
+                        <Text style={styles.worldMeta}>Opening Paragraph: {world.openingParagraph}</Text>
+                        <Text style={styles.worldMeta}>
+                            Main Themes: {world.mainThemes.join(', ')}
+                        </Text>
+                        <Text style={styles.worldMeta}>
+                            World Rules: {world.worldRules.join(', ')}
+                        </Text>
+                        <View style={styles.cardActions}>
+                            <TouchableOpacity 
+                                style={[styles.button, styles.deleteButton]}
                                 onPress={() => deleteWorld(world._id)}
                             >
-                                <Text style={adminStyles.buttonText}>Delete</Text>
+                                <Text style={styles.buttonText}>Delete</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -243,4 +200,134 @@ export default function WorldsTab() {
             </View>
         </ScrollView>
     );
-} 
+}
+
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
+    addSection: {
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    listSection: {
+        padding: 20,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 15,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 4,
+        padding: 10,
+        marginBottom: 10,
+    },
+    button: {
+        backgroundColor: '#007AFF',
+        padding: 10,
+        borderRadius: 4,
+        alignItems: 'center',
+        marginVertical: 5,
+    },
+    buttonText: {
+        color: '#fff',
+        fontWeight: '500',
+    },
+    plotCard: {
+        backgroundColor: '#f5f5f5',
+        padding: 15,
+        borderRadius: 8,
+        marginBottom: 10,
+    },
+    plotName: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 5,
+    },
+    plotDescription: {
+        color: '#333',
+        marginBottom: 10,
+    },
+    plotMeta: {
+        color: '#666',
+        fontSize: 14,
+        marginBottom: 5,
+    },
+    cardActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10,
+        marginTop: 10,
+    },
+    editButton: {
+        backgroundColor: '#4CAF50',
+    },
+    deleteButton: {
+        backgroundColor: '#f44336',
+    },
+    plotHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    subTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    plotPointContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    roleContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    checkboxContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    checkbox: {
+        width: 20,
+        height: 20,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 4,
+        marginRight: 5,
+    },
+    checkboxChecked: {
+        backgroundColor: '#007AFF',
+    },
+    addButton: {
+        backgroundColor: '#4CAF50',
+        padding: 10,
+        borderRadius: 4,
+        alignItems: 'center',
+        marginVertical: 5,
+    },
+    statusBadge: {
+        padding: 5,
+        borderRadius: 4,
+        color: '#fff',
+    },
+    activeBadge: {
+        backgroundColor: '#4CAF50',
+    },
+    inactiveBadge: {
+        backgroundColor: '#f44336',
+    },
+    statusText: {
+        fontWeight: 'bold',
+    },
+}); 

@@ -17,6 +17,7 @@ export default function PlaygroundTab() {
     const [selectedPlot, setSelectedPlot] = useState(null);
     const [selectedWorld, setSelectedWorld] = useState(null);
     const [eventInfluenceLevel, setEventInfluenceLevel] = useState('moderate');
+    const [pollingInterval, setPollingInterval] = useState(null);
 
     useEffect(() => {
         fetchTestUsers();
@@ -146,6 +147,32 @@ export default function PlaygroundTab() {
         }
     };
 
+    // Function to fetch story updates
+    const fetchStoryUpdates = async (threadId) => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const response = await fetch(`http://192.168.1.33:8000/api/stories/thread/${threadId}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            const stories = await response.json();
+            
+            // Update stories only when all are generated
+            const allGenerated = stories.every(story => story.status === 'generated');
+            if (allGenerated) {
+                setGeneratedStories(stories);
+                // Stop polling when all stories are generated
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    setPollingInterval(null);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching story updates:', error);
+        }
+    };
+
     const generateStories = async () => {
         if (!selectedUser || !selectedSettings || loading) {
             alert('Please select a user and settings first');
@@ -156,7 +183,6 @@ export default function PlaygroundTab() {
             setLoading(true);
             const token = await AsyncStorage.getItem('token');
             
-            // Single request for all days
             const response = await fetch('http://192.168.1.33:8000/api/admin/generate-stories', {
                 method: 'POST',
                 headers: {
@@ -168,7 +194,7 @@ export default function PlaygroundTab() {
                     settingsId: selectedSettings._id,
                     plotId: selectedPlot?._id,
                     worldId: selectedWorld?._id,
-                    dayNumber: parseInt(numberOfDays)  // Send total number of days
+                    dayNumber: parseInt(numberOfDays)
                 })
             });
 
@@ -204,6 +230,15 @@ export default function PlaygroundTab() {
             setLoading(false);
         }
     };
+
+    // Clean up polling on unmount
+    useEffect(() => {
+        return () => {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+        };
+    }, [pollingInterval]);
 
     if (loading) {
         return (
