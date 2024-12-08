@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Picker } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { adminStyles } from '../../styles/adminStyles';
 
@@ -16,6 +16,7 @@ export default function PlaygroundTab() {
     const [worlds, setWorlds] = useState([]);
     const [selectedPlot, setSelectedPlot] = useState(null);
     const [selectedWorld, setSelectedWorld] = useState(null);
+    const [eventInfluenceLevel, setEventInfluenceLevel] = useState('moderate');
 
     useEffect(() => {
         fetchTestUsers();
@@ -110,11 +111,43 @@ export default function PlaygroundTab() {
 
     const handleUserSelect = (user) => {
         setSelectedUser(user);
+        setEventInfluenceLevel(user.eventInfluenceLevel);
         fetchUserEvents(user._id);
     };
 
+    const handleInfluenceLevelChange = async (itemValue) => {
+        console.log('Previous level:', eventInfluenceLevel);
+        console.log('Selected level:', itemValue);
+        
+        setEventInfluenceLevel(itemValue);
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const response = await fetch(`http://192.168.1.33:8000/api/admin/test-users/${selectedUser._id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ eventInfluenceLevel: itemValue })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to update event influence level');
+            }
+
+            setSelectedUser(data);
+            console.log('Updated user:', data);
+        } catch (error) {
+            console.error('Error updating event influence level:', error);
+            // Revert the state if update fails
+            setEventInfluenceLevel(selectedUser.eventInfluenceLevel);
+            alert(`Error updating event influence level: ${error.message}`);
+        }
+    };
+
     const generateStories = async () => {
-        if (!selectedUser || !selectedSettings) {
+        if (!selectedUser || !selectedSettings || loading) {
             alert('Please select a user and settings first');
             return;
         }
@@ -122,30 +155,27 @@ export default function PlaygroundTab() {
         try {
             setLoading(true);
             const token = await AsyncStorage.getItem('token');
-            const stories = [];
+            
+            // Single request for all days
+            const response = await fetch('http://192.168.1.33:8000/api/admin/generate-stories', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userId: selectedUser._id,
+                    settingsId: selectedSettings._id,
+                    plotId: selectedPlot?._id,
+                    worldId: selectedWorld?._id,
+                    dayNumber: parseInt(numberOfDays)  // Send total number of days
+                })
+            });
 
-            // Generate stories one by one
-            for (let i = 0; i < parseInt(numberOfDays); i++) {
-                const response = await fetch('http://192.168.1.33:8000/api/admin/generate-stories', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        userId: selectedUser._id,
-                        settingsId: selectedSettings._id,
-                        plotId: selectedPlot?._id,
-                        worldId: selectedWorld?._id,
-                        dayNumber: i + 1
-                    })
-                });
-                const data = await response.json();
-                if (data.story) {
-                    stories.push({ ...data.story, dayNumber: i + 1 });
-                }
+            const data = await response.json();
+            if (data.stories) {
+                setGeneratedStories(data.stories);
             }
-            setGeneratedStories(stories);
         } catch (error) {
             console.error('Error generating stories:', error);
             alert('Failed to generate stories');
@@ -226,6 +256,21 @@ export default function PlaygroundTab() {
                                 </View>
                             ))}
                         </ScrollView>
+                    </View>
+                )}
+
+                {selectedUser && (
+                    <View style={adminStyles.section}>
+                        <Text style={adminStyles.sectionTitle}>Event Influence Level</Text>
+                        <Picker
+                            selectedValue={eventInfluenceLevel}
+                            style={adminStyles.picker}
+                            onValueChange={handleInfluenceLevelChange}
+                        >
+                            <Picker.Item label="Minimal" value="minimal" />
+                            <Picker.Item label="Moderate" value="moderate" />
+                            <Picker.Item label="Strong" value="strong" />
+                        </Picker>
                     </View>
                 )}
 
