@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Picker } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Picker, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { adminStyles } from '../../styles/adminStyles';
+
+const groupByCategory = (items) => {
+    return items.reduce((groups, item) => {
+        const category = item.category || 'Uncategorized';
+        if (!groups[category]) {
+            groups[category] = [];
+        }
+        groups[category].push(item);
+        return groups;
+    }, {});
+};
 
 export default function PlaygroundTab() {
     const [testUsers, setTestUsers] = useState([]);
@@ -18,6 +29,15 @@ export default function PlaygroundTab() {
     const [selectedWorld, setSelectedWorld] = useState(null);
     const [eventInfluenceLevel, setEventInfluenceLevel] = useState('moderate');
     const [pollingInterval, setPollingInterval] = useState(null);
+    const [newWorld, setNewWorld] = useState({
+        name: '',
+        source: '',
+        description: '',
+        openingParagraph: '',
+        mainThemes: [],
+        worldRules: [],
+        keyElements: []
+    });
 
     useEffect(() => {
         fetchTestUsers();
@@ -111,16 +131,17 @@ export default function PlaygroundTab() {
     };
 
     const handleUserSelect = (user) => {
-        setSelectedUser(user);
-        setEventInfluenceLevel(user.eventInfluenceLevel);
-        fetchUserEvents(user._id);
+        if (selectedUser?._id === user._id) {
+            setSelectedUser(null);
+            setUserEvents([]);
+        } else {
+            setSelectedUser(user);
+            setEventInfluenceLevel(user.eventInfluenceLevel);
+            fetchUserEvents(user._id);
+        }
     };
 
     const handleInfluenceLevelChange = async (itemValue) => {
-        console.log('Previous level:', eventInfluenceLevel);
-        console.log('Selected level:', itemValue);
-        
-        setEventInfluenceLevel(itemValue);
         try {
             const token = await AsyncStorage.getItem('token');
             const response = await fetch(`http://192.168.1.33:8000/api/admin/test-users/${selectedUser._id}`, {
@@ -132,17 +153,15 @@ export default function PlaygroundTab() {
                 body: JSON.stringify({ eventInfluenceLevel: itemValue })
             });
 
-            const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to update event influence level');
+                throw new Error('Failed to update event influence level');
             }
 
+            const data = await response.json();
             setSelectedUser(data);
-            console.log('Updated user:', data);
+            setEventInfluenceLevel(itemValue);  // Update local state
         } catch (error) {
             console.error('Error updating event influence level:', error);
-            // Revert the state if update fails
-            setEventInfluenceLevel(selectedUser.eventInfluenceLevel);
             alert(`Error updating event influence level: ${error.message}`);
         }
     };
@@ -194,7 +213,8 @@ export default function PlaygroundTab() {
                     settingsId: selectedSettings._id,
                     plotId: selectedPlot?._id,
                     worldId: selectedWorld?._id,
-                    dayNumber: parseInt(numberOfDays)
+                    dayNumber: parseInt(numberOfDays),
+                    eventInfluenceLevel
                 })
             });
 
@@ -240,6 +260,40 @@ export default function PlaygroundTab() {
         };
     }, [pollingInterval]);
 
+    const createWorld = async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const response = await fetch('http://192.168.1.33:8000/story-worlds', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newWorld)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Failed to create world');
+            }
+
+            const world = await response.json();
+            setWorlds([...worlds, world]);
+            setNewWorld({
+                name: '',
+                source: '',
+                description: '',
+                openingParagraph: '',
+                mainThemes: [],
+                worldRules: [],
+                keyElements: []
+            });
+        } catch (error) {
+            console.error('Error creating world:', error);
+            alert(error.message);
+        }
+    };
+
     if (loading) {
         return (
             <View style={adminStyles.container}>
@@ -252,140 +306,165 @@ export default function PlaygroundTab() {
         <ScrollView style={adminStyles.container}>
             <View style={adminStyles.section}>
                 <View style={adminStyles.headerSection}>
-                    <Text style={adminStyles.sectionTitle}>Test Users</Text>
+                    <Text style={adminStyles.sectionTitle}>Story Generation</Text>
                     <TouchableOpacity 
                         style={[adminStyles.button, adminStyles.resetButton]}
                         onPress={resetTestUsers}
                     >
-                        <Text style={adminStyles.buttonText}>Reset Test Users</Text>
+                        <Text style={adminStyles.buttonText}>Reset Users</Text>
                     </TouchableOpacity>
                 </View>
-                <ScrollView horizontal style={adminStyles.userList}>
-                    {Array.isArray(testUsers) && testUsers.map(user => (
-                        <TouchableOpacity
-                            key={user._id}
-                            style={[
-                                adminStyles.userCard,
-                                selectedUser?._id === user._id && adminStyles.selectedCard
-                            ]}
-                            onPress={() => handleUserSelect(user)}
-                        >
-                            <Text style={adminStyles.userName}>{user.name}</Text>
-                            <Text style={adminStyles.userEmail}>{user.email}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
 
-                {selectedUser && userEvents.length > 0 && (
-                    <View style={adminStyles.section}>
-                        <Text style={adminStyles.sectionTitle}>User Events</Text>
-                        <ScrollView style={adminStyles.eventsList}>
+                {/* Filter chips section */}
+                <View style={styles.filterSection}>
+                    <Text style={styles.filterTitle}>Test Users</Text>
+                    <View style={styles.chipContainer}>
+                        {testUsers.map(user => (
+                            <TouchableOpacity
+                                key={user._id}
+                                style={[styles.chip, selectedUser?._id === user._id && styles.chipActive]}
+                                onPress={() => handleUserSelect(user)}
+                            >
+                                <Text style={[styles.chipText, selectedUser?._id === user._id && styles.chipTextActive]}>
+                                    {user.name.split(' ')[0]}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <Text style={styles.filterTitle}>Story Plots</Text>
+                    <View style={styles.chipContainer}>
+                        {plots.map(plot => (
+                            <TouchableOpacity
+                                key={plot._id}
+                                style={[styles.chip, selectedPlot?._id === plot._id && styles.chipActive]}
+                                onPress={() => setSelectedPlot(selectedPlot?._id === plot._id ? null : plot)}
+                            >
+                                <Text style={[styles.chipText, selectedPlot?._id === plot._id && styles.chipTextActive]}>
+                                    {plot.name}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    <Text style={styles.filterTitle}>Story Worlds</Text>
+                    {Object.entries(groupByCategory(worlds)).map(([category, categoryWorlds]) => (
+                        <View key={category}>
+                            <Text style={styles.categorySubtitle}>{category}</Text>
+                            <View style={styles.chipContainer}>
+                                {categoryWorlds.map(world => (
+                                    <TouchableOpacity
+                                        key={world._id}
+                                        style={[styles.chip, selectedWorld?._id === world._id && styles.chipActive]}
+                                        onPress={() => setSelectedWorld(selectedWorld?._id === world._id ? null : world)}
+                                    >
+                                        <Text style={[styles.chipText, selectedWorld?._id === world._id && styles.chipTextActive]}>
+                                            {world.name}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    ))}
+
+                    <Text style={styles.filterTitle}>Story Settings</Text>
+                    <View style={styles.chipContainer}>
+                        {settings.map(setting => (
+                            <TouchableOpacity
+                                key={setting._id}
+                                style={[styles.chip, selectedSettings?._id === setting._id && styles.chipActive]}
+                                onPress={() => setSelectedSettings(selectedSettings?._id === setting._id ? null : setting)}
+                            >
+                                <Text style={[styles.chipText, selectedSettings?._id === setting._id && styles.chipTextActive]}>
+                                    {setting.name}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+
+                {/* User Events Section */}
+                {selectedUser && (
+                    <View style={styles.eventsSection}>
+                        <Text style={styles.sectionTitle}>User Events</Text>
+                        <ScrollView style={styles.eventsList}>
                             {userEvents.map(event => (
-                                <View key={event._id} style={adminStyles.eventCard}>
-                                    <Text style={adminStyles.eventTitle}>{event.summary}</Text>
-                                    <Text style={adminStyles.eventTime}>
-                                        {new Date(event.start.dateTime).toLocaleString()}
+                                <View key={event._id} style={styles.eventCard}>
+                                    <Text style={styles.eventTitle}>{event.summary}</Text>
+                                    <Text style={styles.eventTime}>
+                                        {new Date(event.start.dateTime).toLocaleTimeString()} - 
+                                        {new Date(event.end.dateTime).toLocaleTimeString()}
                                     </Text>
-                                    <Text style={adminStyles.eventLocation}>{event.location}</Text>
-                                    <Text style={adminStyles.eventDescription}>{event.description}</Text>
+                                    {event.location && (
+                                        <Text style={styles.eventLocation}>📍 {event.location}</Text>
+                                    )}
+                                    {event.description && (
+                                        <Text style={styles.eventDescription}>{event.description}</Text>
+                                    )}
                                 </View>
                             ))}
                         </ScrollView>
                     </View>
                 )}
 
-                {selectedUser && (
-                    <View style={adminStyles.section}>
-                        <Text style={adminStyles.sectionTitle}>Event Influence Level</Text>
-                        <Picker
-                            selectedValue={eventInfluenceLevel}
-                            style={adminStyles.picker}
-                            onValueChange={handleInfluenceLevelChange}
-                        >
-                            <Picker.Item label="Minimal" value="minimal" />
-                            <Picker.Item label="Moderate" value="moderate" />
-                            <Picker.Item label="Strong" value="strong" />
-                        </Picker>
+                {/* Story Generation Controls */}
+                <View style={styles.generationControls}>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Number of days"
+                        value={numberOfDays}
+                        onChangeText={setNumberOfDays}
+                        keyboardType="numeric"
+                    />
+
+                    <View style={styles.influenceSelector}>
+                        <Text style={styles.influenceLabel}>Event Influence:</Text>
+                        <View style={styles.chipContainer}>
+                            {['minimal', 'moderate', 'strong'].map(level => (
+                                <TouchableOpacity
+                                    key={level}
+                                    style={[
+                                        styles.chip,
+                                        eventInfluenceLevel === level && styles.chipActive
+                                    ]}
+                                    onPress={() => {
+                                        setEventInfluenceLevel(level);
+                                        if (selectedUser) {
+                                            handleInfluenceLevelChange(level);
+                                        }
+                                    }}
+                                >
+                                    <Text style={[
+                                        styles.chipText,
+                                        eventInfluenceLevel === level && styles.chipTextActive
+                                    ]}>
+                                        {level.charAt(0).toUpperCase() + level.slice(1)}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
                     </View>
-                )}
 
-                <Text style={adminStyles.sectionTitle}>Story World</Text>
-                <ScrollView horizontal style={adminStyles.settingsList}>
-                    {worlds.map(world => (
-                        <TouchableOpacity
-                            key={world._id}
-                            style={[
-                                adminStyles.settingCard,
-                                selectedWorld?._id === world._id && adminStyles.selectedCard
-                            ]}
-                            onPress={() => setSelectedWorld(world)}
-                        >
-                            <Text style={adminStyles.settingName}>{world.name}</Text>
-                            <Text style={adminStyles.settingDetail}>{world.description}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                    <TouchableOpacity 
+                        style={[
+                            styles.generateButton,
+                            (!selectedUser || !selectedSettings) && styles.generateButtonDisabled
+                        ]}
+                        onPress={generateStories}
+                        disabled={!selectedUser || !selectedSettings}
+                    >
+                        <Text style={styles.generateButtonText}>Generate Stories</Text>
+                    </TouchableOpacity>
+                </View>
 
-                <Text style={adminStyles.sectionTitle}>Story Plot</Text>
-                <ScrollView horizontal style={adminStyles.settingsList}>
-                    {plots.map(plot => (
-                        <TouchableOpacity
-                            key={plot._id}
-                            style={[
-                                adminStyles.settingCard,
-                                selectedPlot?._id === plot._id && adminStyles.selectedCard
-                            ]}
-                            onPress={() => setSelectedPlot(plot)}
-                        >
-                            <Text style={adminStyles.settingName}>{plot.name}</Text>
-                            <Text style={adminStyles.settingDetail}>{plot.description}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-
-                <Text style={adminStyles.sectionTitle}>Story Settings</Text>
-                <ScrollView horizontal style={adminStyles.settingsList}>
-                    {settings.map(setting => (
-                        <TouchableOpacity
-                            key={setting._id}
-                            style={[
-                                adminStyles.settingCard,
-                                selectedSettings?._id === setting._id && adminStyles.selectedCard
-                            ]}
-                            onPress={() => setSelectedSettings(setting)}
-                        >
-                            <Text style={adminStyles.settingName}>{setting.name}</Text>
-                            <Text style={adminStyles.settingDetail}>
-                                Model: {setting.model}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-
-                <Text style={adminStyles.sectionTitle}>Generate Stories</Text>
-                <TextInput
-                    style={adminStyles.input}
-                    placeholder="Number of days"
-                    value={numberOfDays}
-                    onChangeText={setNumberOfDays}
-                    keyboardType="numeric"
-                />
-
-                <TouchableOpacity 
-                    style={adminStyles.button}
-                    onPress={generateStories}
-                    disabled={!selectedUser || !selectedSettings}
-                >
-                    <Text style={adminStyles.buttonText}>Generate Stories</Text>
-                </TouchableOpacity>
-
+                {/* Generated Stories */}
                 {generatedStories.length > 0 && (
-                    <View style={adminStyles.storiesList}>
-                        <Text style={adminStyles.sectionTitle}>Generated Stories</Text>
+                    <View style={styles.storiesList}>
+                        <Text style={styles.sectionTitle}>Generated Stories</Text>
                         {generatedStories.map((story, index) => (
-                            <View key={story._id || index} style={adminStyles.storyCard}>
-                                <Text style={adminStyles.storyDay}>Day {story.dayNumber}</Text>
-                                <Text style={adminStyles.storyContent}>{story.content}</Text>
+                            <View key={story._id || index} style={styles.storyCard}>
+                                <Text style={styles.storyDay}>Day {story.dayNumber}</Text>
+                                <Text style={styles.storyContent}>{story.content}</Text>
                             </View>
                         ))}
                     </View>
@@ -393,4 +472,144 @@ export default function PlaygroundTab() {
             </View>
         </ScrollView>
     );
-} 
+}
+
+const styles = StyleSheet.create({
+    filterSection: {
+        padding: 15,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        marginBottom: 15,
+    },
+    filterTitle: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        color: '#666',
+    },
+    chipContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginBottom: 10,
+    },
+    chip: {
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 16,
+        backgroundColor: '#f0f0f0',
+        borderWidth: 1,
+        borderColor: '#ddd',
+        marginBottom: 4,
+    },
+    chipActive: {
+        backgroundColor: '#007AFF',
+        borderColor: '#007AFF',
+    },
+    chipText: {
+        fontSize: 12,
+        color: '#666',
+    },
+    chipTextActive: {
+        color: '#fff',
+    },
+    eventsSection: {
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    eventsList: {
+        maxHeight: 200,
+    },
+    eventCard: {
+        padding: 10,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        marginBottom: 10,
+    },
+    eventTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 5,
+    },
+    eventTime: {
+        fontSize: 12,
+        color: '#666',
+    },
+    eventLocation: {
+        fontSize: 12,
+        color: '#666',
+        marginBottom: 5,
+    },
+    eventDescription: {
+        fontSize: 12,
+        color: '#666',
+    },
+    generationControls: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    input: {
+        width: '40%',
+        padding: 10,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        marginRight: 10,
+    },
+    generateButton: {
+        padding: 10,
+        borderRadius: 8,
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 20,
+    },
+    generateButtonDisabled: {
+        backgroundColor: '#ccc',
+    },
+    generateButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    storiesList: {
+        marginTop: 20,
+    },
+    storyCard: {
+        padding: 10,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        marginBottom: 10,
+    },
+    storyDay: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 5,
+    },
+    storyContent: {
+        fontSize: 12,
+        color: '#666',
+    },
+    categorySubtitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#666',
+        marginTop: 10,
+        marginBottom: 5,
+        paddingLeft: 5,
+        borderLeftWidth: 3,
+        borderLeftColor: '#007AFF',
+    },
+    influenceSelector: {
+        marginBottom: 10,
+    },
+    influenceLabel: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 5,
+        color: '#666',
+    }
+}); 
