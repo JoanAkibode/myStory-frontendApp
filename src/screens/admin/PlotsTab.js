@@ -59,7 +59,11 @@ export default function PlotsTab() {
             });
             console.log('Plots response:', await response.clone().json());
             const data = await response.json();
-            setPlots(data);
+            // Sort plots by updatedAt date
+            const sortedPlots = data.sort((a, b) => 
+                new Date(b.updatedAt) - new Date(a.updatedAt)
+            );
+            setPlots(sortedPlots);
         } catch (error) {
             console.error('Error fetching plots:', error);
         } finally {
@@ -398,6 +402,14 @@ export default function PlotsTab() {
                                         Day {m.milestone}: {m.description}
                                     </Text>
                                 ))}
+                                <View style={styles.datesContainer}>
+                                    <Text style={styles.dateText}>
+                                        Created: {new Date(plot.createdAt).toLocaleString()}
+                                    </Text>
+                                    <Text style={styles.dateText}>
+                                        Modified: {new Date(plot.updatedAt).toLocaleString()}
+                                    </Text>
+                                </View>
                                 <View style={styles.cardActions}>
                                     <TouchableOpacity 
                                         style={[styles.button, styles.editButton]}
@@ -571,7 +583,7 @@ const styles = StyleSheet.create({
         fontFamily: 'monospace'
     },
     importButton: {
-        backgroundColor: '#4CAF50'
+        backgroundColor: '#007AFF'
     },
     editActions: {
         flexDirection: 'row',
@@ -597,5 +609,26 @@ const styles = StyleSheet.create({
     helpButtonText: {
         color: 'white',
         fontWeight: '500'
-    }
+    },
+    datesContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 15,
+        marginBottom: 10,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+    dateText: {
+        fontSize: 12,
+        color: '#666',
+        fontStyle: 'italic',
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
 }); 

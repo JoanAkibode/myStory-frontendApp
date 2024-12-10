@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { adminStyles } from '../../styles/adminStyles';
 import Slider from '@react-native-community/slider';
+import JsonFormatModal from '../../components/JsonFormatModal';
+
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date) 
+        ? date.toLocaleString()
+        : 'N/A';
+};
 
 export default function SettingsTab() {
     const [settings, setSettings] = useState([]);
@@ -16,6 +24,10 @@ export default function SettingsTab() {
         maxWords: 0,
         active: false
     });
+    const [jsonInput, setJsonInput] = useState('');
+    const [showFormat, setShowFormat] = useState(false);
+    const [editingSetting, setEditingSetting] = useState(null);
+    const [editedSetting, setEditedSetting] = useState(null);
 
     useEffect(() => {
         fetchSettings();
@@ -40,9 +52,14 @@ export default function SettingsTab() {
             
             const data = await response.json();
             if (Array.isArray(data)) {
-                setSettings(data);
+                // Sort settings: active first, then by updatedAt date
+                const sortedSettings = data.sort((a, b) => {
+                    if (a.active && !b.active) return -1;
+                    if (!a.active && b.active) return 1;
+                    return new Date(b.updatedAt) - new Date(a.updatedAt); // Most recent first
+                });
+                setSettings(sortedSettings);
             } else if (data && typeof data === 'object') {
-                console.log('Converting single setting to array:', data);
                 setSettings([data]);
             } else {
                 console.error('Invalid settings data:', data);
@@ -120,59 +137,178 @@ export default function SettingsTab() {
                 throw new Error('Failed to update setting');
             }
 
-            // The response now contains all updated settings
+            // The response contains all updated settings
             const updatedSettings = await response.json();
-            setSettings(updatedSettings);
+            // Sort settings: active first, then by updatedAt date
+            const sortedSettings = updatedSettings.sort((a, b) => {
+                if (a.active && !b.active) return -1;
+                if (!a.active && b.active) return 1;
+                return new Date(b.updatedAt) - new Date(a.updatedAt);
+            });
+            setSettings(sortedSettings);
         } catch (error) {
             console.error('Error toggling setting active state:', error);
         }
     };
 
+    const importSettingsFromJson = async () => {
+        try {
+            let settingsToImport;
+            try {
+                settingsToImport = JSON.parse(jsonInput);
+                if (!Array.isArray(settingsToImport)) {
+                    settingsToImport = [settingsToImport];
+                }
+            } catch (error) {
+                alert('Invalid JSON format');
+                return;
+            }
+
+            const token = await AsyncStorage.getItem('token');
+            const response = await fetch('http://192.168.1.33:8000/story-settings/bulk', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ settings: settingsToImport })
+            });
+
+            const data = await response.json();
+            
+            // Add successful imports to the list
+            if (data.success?.length > 0) {
+                setSettings(prev => [...prev, ...data.success]);
+            }
+
+            // Show detailed message about results
+            let message = `Successfully imported ${data.success?.length || 0} settings.`;
+            if (data.failed?.length > 0) {
+                message += `\n\nFailed imports:\n${data.failed.map(f => 
+                    `- ${f.setting.name}: ${f.error}`
+                ).join('\n')}`;
+            }
+            
+            alert(message);
+            setJsonInput('');
+        } catch (error) {
+            alert('Error importing settings: ' + error.message);
+        }
+    };
+
+    const settingFormat = `{
+  "name": "The Narrative Weaver V3",
+  "model": "gpt-4o-mini",
+  "temperature": 0.8,
+  "maxTokens": 1000,
+  "minWords": 200,
+  "maxWords": 400,
+  "systemRole": "You are a storytelling master who crafts compelling stories...",
+  "active": true
+}`;
+
+    const startEditing = (setting) => {
+        setEditingSetting(setting._id);
+        setEditedSetting({...setting});
+    };
+
+    const cancelEditing = () => {
+        setEditingSetting(null);
+        setEditedSetting(null);
+    };
+
+    const saveEdits = async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const response = await fetch(`http://192.168.1.33:8000/story-settings/${editingSetting}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(editedSetting)
+            });
+
+            const updatedSettings = await response.json();
+            setSettings(updatedSettings);
+            setEditingSetting(null);
+            setEditedSetting(null);
+        } catch (error) {
+            alert('Failed to update setting');
+        }
+    };
+
     if (loading) {
         return (
-            <View style={adminStyles.container}>
+            <View style={styles.container}>
                 <Text>Loading story settings...</Text>
             </View>
         );
     }
 
     return (
-        <ScrollView style={adminStyles.container}>
-            <View style={adminStyles.addSection}>
-                <Text style={adminStyles.sectionTitle}>Create New Story Setting</Text>
-                
-                <Text style={adminStyles.inputLabel}>Name your setting configuration:</Text>
+        <ScrollView style={styles.container}>
+            <View style={styles.addSection}>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Import Settings from JSON</Text>
+                    <TouchableOpacity 
+                        style={styles.helpButton}
+                        onPress={() => setShowFormat(true)}
+                    >
+                        <Text style={styles.helpButtonText}>?</Text>
+                    </TouchableOpacity>
+                </View>
                 <TextInput
-                    style={adminStyles.input}
+                    style={[styles.input, styles.jsonInput]}
+                    placeholder="Paste JSON here"
+                    value={jsonInput}
+                    onChangeText={setJsonInput}
+                    multiline
+                    numberOfLines={6}
+                />
+                <TouchableOpacity 
+                    style={[styles.button, styles.importButton]}
+                    onPress={importSettingsFromJson}
+                >
+                    <Text style={styles.buttonText}>Import Settings</Text>
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.addSection}>
+                <Text style={styles.sectionTitle}>Create New Story Setting</Text>
+                
+                <Text style={styles.inputLabel}>Name your setting configuration:</Text>
+                <TextInput
+                    style={styles.input}
                     placeholder="e.g., 'Creative Mode' or 'Professional Style'"
                     value={newSetting.name}
                     onChangeText={text => setNewSetting(prev => ({...prev, name: text}))}
                 />
 
-                <Text style={adminStyles.inputLabel}>Define how the AI should behave:</Text>
+                <Text style={styles.inputLabel}>Define how the AI should behave:</Text>
                 <TextInput
-                    style={[adminStyles.input, adminStyles.textArea]}
+                    style={[styles.input, styles.textArea]}
                     placeholder="e.g., 'You are a creative storyteller. Write engaging stories in a casual, friendly tone.'"
                     value={newSetting.systemRole}
                     onChangeText={text => setNewSetting(prev => ({...prev, systemRole: text}))}
                     multiline
                 />
 
-                <Text style={adminStyles.subTitle}>Model Settings</Text>
+                <Text style={styles.subTitle}>Model Settings</Text>
                 
-                <Text style={adminStyles.inputLabel}>Choose AI Model:</Text>
+                <Text style={styles.inputLabel}>Choose AI Model:</Text>
                 <TextInput
-                    style={adminStyles.input}
+                    style={styles.input}
                     placeholder="gpt-3.5-turbo (faster/cheaper) or gpt-4 (smarter/better)"
                     value={newSetting.model}
                     onChangeText={text => setNewSetting(prev => ({...prev, model: text}))}
                 />
 
-                <Text style={adminStyles.inputLabel}>Set AI Creativity Level:</Text>
-                <View style={adminStyles.sliderContainer}>
-                    <Text style={adminStyles.sliderValue}>{newSetting.temperature.toFixed(2)}</Text>
+                <Text style={styles.inputLabel}>Set AI Creativity Level:</Text>
+                <View style={styles.sliderContainer}>
+                    <Text style={styles.sliderValue}>{newSetting.temperature.toFixed(2)}</Text>
                     <Slider
-                        style={adminStyles.slider}
+                        style={styles.slider}
                         minimumValue={0}
                         maximumValue={1}
                         step={0.1}
@@ -181,83 +317,369 @@ export default function SettingsTab() {
                         minimumTrackTintColor="#007AFF"
                         maximumTrackTintColor="#ddd"
                     />
-                    <View style={adminStyles.sliderLabels}>
-                        <Text style={adminStyles.sliderLabel}>Focused</Text>
-                        <Text style={adminStyles.sliderLabel}>Creative</Text>
+                    <View style={styles.sliderLabels}>
+                        <Text style={styles.sliderLabel}>Focused</Text>
+                        <Text style={styles.sliderLabel}>Creative</Text>
                     </View>
                 </View>
 
-                <Text style={adminStyles.inputLabel}>Set Story Length:</Text>
+                <Text style={styles.inputLabel}>Set Story Length:</Text>
                 <TextInput
-                    style={adminStyles.input}
+                    style={styles.input}
                     placeholder="Minimum words (200 for short, 500 for detailed)"
                     value={newSetting.minWords.toString()}
                     onChangeText={(text) => setNewSetting(prev => ({...prev, minWords: parseInt(text) || 0}))}
                     keyboardType="numeric"
                 />
                 <TextInput
-                    style={adminStyles.input}
+                    style={styles.input}
                     placeholder="Maximum words (400 for short, 1000 for detailed)"
                     value={newSetting.maxWords.toString()}
                     onChangeText={(text) => setNewSetting(prev => ({...prev, maxWords: parseInt(text) || 0}))}
                     keyboardType="numeric"
                 />
                 
-                <TouchableOpacity style={adminStyles.button} onPress={saveSetting}>
-                    <Text style={adminStyles.buttonText}>Create Setting</Text>
+                <TouchableOpacity style={styles.button} onPress={saveSetting}>
+                    <Text style={styles.buttonText}>Create Setting</Text>
                 </TouchableOpacity>
             </View>
 
-            <View style={adminStyles.listSection}>
-                <Text style={adminStyles.sectionTitle}>Story Settings</Text>
+            <View style={styles.listSection}>
+                <Text style={styles.sectionTitle}>Story Settings</Text>
                 {Array.isArray(settings) && settings.map(setting => (
-                    <View key={setting._id} style={adminStyles.card}>
-                        <View style={adminStyles.cardHeader}>
-                            <Text style={adminStyles.cardName}>{setting.name}</Text>
-                            <TouchableOpacity 
-                                style={[
-                                    adminStyles.statusBadge, 
-                                    setting.active ? adminStyles.activeBadge : adminStyles.inactiveBadge
-                                ]}
-                                onPress={() => toggleSettingActive(setting)}
-                            >
-                                <Text style={adminStyles.statusText}>
-                                    {setting.active ? 'Active' : 'Inactive'}
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-                        
-                        <View style={adminStyles.cardDescription}>
-                            <Text style={adminStyles.labelText}>System Role</Text>
-                            <Text style={adminStyles.cardValue}>{setting.systemRole}</Text>
-                        </View>
+                    <View key={setting._id} style={styles.card}>
+                        {editingSetting === setting._id ? (
+                            <>
+                                <TextInput
+                                    style={styles.input}
+                                    value={editedSetting.name}
+                                    onChangeText={text => setEditedSetting(prev => ({...prev, name: text}))}
+                                    placeholder="Setting Name"
+                                />
+                                <TextInput
+                                    style={[styles.input, styles.textArea]}
+                                    value={editedSetting.systemRole}
+                                    onChangeText={text => setEditedSetting(prev => ({...prev, systemRole: text}))}
+                                    placeholder="System Role"
+                                    multiline
+                                />
+                                <TextInput
+                                    style={styles.input}
+                                    value={editedSetting.model}
+                                    onChangeText={text => setEditedSetting(prev => ({...prev, model: text}))}
+                                    placeholder="Model"
+                                />
 
-                        <View style={adminStyles.cardDescription}>
-                            <Text style={adminStyles.labelText}>Model</Text>
-                            <Text style={adminStyles.cardValue}>{setting.model}</Text>
-                        </View>
+                                <Text style={styles.inputLabel}>AI Creativity Level:</Text>
+                                <View style={styles.sliderContainer}>
+                                    <Text style={styles.sliderValue}>{editedSetting.temperature.toFixed(2)}</Text>
+                                    <Slider
+                                        style={styles.slider}
+                                        minimumValue={0}
+                                        maximumValue={1}
+                                        step={0.1}
+                                        value={editedSetting.temperature}
+                                        onValueChange={(value) => setEditedSetting(prev => ({...prev, temperature: value}))}
+                                        minimumTrackTintColor="#007AFF"
+                                        maximumTrackTintColor="#ddd"
+                                    />
+                                    <View style={styles.sliderLabels}>
+                                        <Text style={styles.sliderLabel}>Focused</Text>
+                                        <Text style={styles.sliderLabel}>Creative</Text>
+                                    </View>
+                                </View>
 
-                        <View style={adminStyles.cardDescription}>
-                            <Text style={adminStyles.labelText}>Temperature</Text>
-                            <Text style={adminStyles.cardValue}>{setting.temperature}</Text>
-                        </View>
+                                <Text style={styles.inputLabel}>Story Length:</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Minimum words"
+                                    value={String(editedSetting.minWords)}
+                                    onChangeText={(text) => setEditedSetting(prev => ({...prev, minWords: parseInt(text) || 0}))}
+                                    keyboardType="numeric"
+                                />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Maximum words"
+                                    value={String(editedSetting.maxWords)}
+                                    onChangeText={(text) => setEditedSetting(prev => ({...prev, maxWords: parseInt(text) || 0}))}
+                                    keyboardType="numeric"
+                                />
 
-                        <View style={adminStyles.cardDescription}>
-                            <Text style={adminStyles.labelText}>Word Range</Text>
-                            <Text style={adminStyles.cardValue}>{setting.minWords}-{setting.maxWords}</Text>
-                        </View>
+                                <View style={styles.cardActions}>
+                                    <TouchableOpacity 
+                                        style={[styles.button, styles.saveButton]}
+                                        onPress={saveEdits}
+                                    >
+                                        <Text style={styles.buttonText}>Save</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.button, styles.cancelButton]}
+                                        onPress={cancelEditing}
+                                    >
+                                        <Text style={styles.buttonText}>Cancel</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        ) : (
+                            <>
+                                <View style={styles.cardHeader}>
+                                    <Text style={styles.cardName}>{setting.name}</Text>
+                                    <TouchableOpacity 
+                                        style={[
+                                            styles.statusBadge, 
+                                            setting.active ? styles.activeBadge : styles.inactiveBadge
+                                        ]}
+                                        onPress={() => toggleSettingActive(setting)}
+                                    >
+                                        <Text style={styles.statusText}>
+                                            {setting.active ? 'Active' : 'Inactive'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                                
+                                <View style={styles.cardDescription}>
+                                    <Text style={styles.labelText}>System Role</Text>
+                                    <Text style={styles.cardValue}>{setting.systemRole}</Text>
+                                </View>
 
-                        <View style={adminStyles.cardActions}>
-                            <TouchableOpacity 
-                                style={[adminStyles.button, adminStyles.deleteButton]}
-                                onPress={() => deleteSetting(setting._id)}
-                            >
-                                <Text style={adminStyles.buttonText}>Delete</Text>
-                            </TouchableOpacity>
-                        </View>
+                                <View style={styles.cardDescription}>
+                                    <Text style={styles.labelText}>Model</Text>
+                                    <Text style={styles.cardValue}>{setting.model}</Text>
+                                </View>
+
+                                <View style={styles.cardDescription}>
+                                    <Text style={styles.labelText}>Temperature</Text>
+                                    <Text style={styles.cardValue}>{setting.temperature}</Text>
+                                </View>
+
+                                <View style={styles.cardDescription}>
+                                    <Text style={styles.labelText}>Word Range</Text>
+                                    <Text style={styles.cardValue}>{setting.minWords}-{setting.maxWords}</Text>
+                                </View>
+
+                                <View style={styles.datesContainer}>
+                                    <Text style={styles.dateText}>
+                                        Created: {formatDate(setting.createdAt)}
+                                    </Text>
+                                    <Text style={styles.dateText}>
+                                        Modified: {formatDate(setting.updatedAt)}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.cardActions}>
+                                    <TouchableOpacity 
+                                        style={[styles.button, styles.editButton]}
+                                        onPress={() => startEditing(setting)}
+                                    >
+                                        <Text style={styles.buttonText}>Edit</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.button, styles.deleteButton]}
+                                        onPress={() => deleteSetting(setting._id)}
+                                    >
+                                        <Text style={styles.buttonText}>Delete</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
                     </View>
                 ))}
             </View>
+
+            <JsonFormatModal
+                visible={showFormat}
+                onClose={() => setShowFormat(false)}
+                format={settingFormat}
+                title="Setting JSON Format"
+            />
         </ScrollView>
     );
-} 
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
+    addSection: {
+        padding: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    listSection: {
+        padding: 20,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 15,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        padding: 10,
+        marginVertical: 5,
+        borderRadius: 5,
+        backgroundColor: '#fff'
+    },
+    button: {
+        backgroundColor: '#007AFF',
+        padding: 10,
+        borderRadius: 4,
+        alignItems: 'center',
+    },
+    buttonText: {
+        color: '#fff',
+        fontWeight: '500',
+    },
+    card: {
+        backgroundColor: '#f5f5f5',
+        padding: 15,
+        borderRadius: 8,
+        marginBottom: 10,
+    },
+    cardName: {
+        fontSize: 16,
+        fontWeight: '500',
+        marginBottom: 5,
+    },
+    cardDescription: {
+        color: '#666',
+        marginBottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    cardValue: {
+        color: '#444',
+        flex: 1,
+        fontSize: 14,
+    },
+    cardActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 10,
+    },
+    editButton: {
+        backgroundColor: '#4CAF50',
+    },
+    deleteButton: {
+        backgroundColor: '#f44336',
+    },
+    textArea: {
+        height: 100,
+        textAlignVertical: 'top'
+    },
+    helpButton: {
+        backgroundColor: '#007AFF',
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    helpButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    datesContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 15,
+        marginBottom: 10,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+    dateText: {
+        fontSize: 12,
+        color: '#666',
+        fontStyle: 'italic',
+    },
+    subTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginTop: 15,
+        marginBottom: 10,
+    },
+    labelText: {
+        fontWeight: '600',
+        color: '#333',
+        fontSize: 15,
+        marginRight: 8,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    statusBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    activeBadge: {
+        backgroundColor: '#4CAF50',
+    },
+    inactiveBadge: {
+        backgroundColor: '#666',
+    },
+    statusText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    inputLabel: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 5,
+        marginTop: 10,
+        fontWeight: '500',
+    },
+    sliderContainer: {
+        marginBottom: 20,
+    },
+    slider: {
+        width: '100%',
+        height: 40,
+    },
+    sliderValue: {
+        textAlign: 'center',
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#007AFF',
+    },
+    sliderLabels: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 10,
+    },
+    sliderLabel: {
+        fontSize: 12,
+        color: '#666',
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    jsonInput: {
+        height: 150,
+        textAlignVertical: 'top',
+        fontFamily: 'monospace'
+    },
+    importButton: {
+        backgroundColor: '#007AFF'
+    },
+    saveButton: {
+        backgroundColor: '#4CAF50'
+    },
+    cancelButton: {
+        backgroundColor: '#666'
+    }
+}); 

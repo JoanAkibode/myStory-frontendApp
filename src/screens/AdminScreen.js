@@ -31,8 +31,6 @@ export default function AdminScreen() {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.title}>Admin Panel</Text>
-            
             <View style={styles.tabBar}>
                 <TouchableOpacity 
                     style={[styles.tab, activeTab === 'settings' && styles.activeTab]}
@@ -71,11 +69,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-    },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        padding: 20,
     },
     tabBar: {
         flexDirection: 'row',

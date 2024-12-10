@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Picker, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { adminStyles } from '../../styles/adminStyles';
+
 
 const groupByCategory = (items) => {
     return items.reduce((groups, item) => {
@@ -159,9 +159,8 @@ export default function PlaygroundTab() {
 
             const data = await response.json();
             setSelectedUser(data);
-            setEventInfluenceLevel(itemValue);  // Update local state
+            setEventInfluenceLevel(itemValue);
         } catch (error) {
-            console.error('Error updating event influence level:', error);
             alert(`Error updating event influence level: ${error.message}`);
         }
     };
@@ -296,22 +295,22 @@ export default function PlaygroundTab() {
 
     if (loading) {
         return (
-            <View style={adminStyles.container}>
+            <View style={styles.container}>
                 <Text>Loading...</Text>
             </View>
         );
     }
 
     return (
-        <ScrollView style={adminStyles.container}>
-            <View style={adminStyles.section}>
-                <View style={adminStyles.headerSection}>
-                    <Text style={adminStyles.sectionTitle}>Story Generation</Text>
+        <ScrollView style={styles.container}>
+            <View style={styles.section}>
+                <View style={styles.headerSection}>
+                    <Text style={styles.sectionTitle}>Story Generation</Text>
                     <TouchableOpacity 
-                        style={[adminStyles.button, adminStyles.resetButton]}
+                        style={[styles.button, styles.resetButton]}
                         onPress={resetTestUsers}
                     >
-                        <Text style={adminStyles.buttonText}>Reset Users</Text>
+                        <Text style={styles.buttonText}>Reset Users</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -475,6 +474,10 @@ export default function PlaygroundTab() {
 }
 
 const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
     filterSection: {
         padding: 15,
         backgroundColor: '#fff',

@@ -11,16 +11,13 @@ const textToArray = (text) => {
         [text];
 };
 
-// Add this helper function to group worlds by category
-const groupWorldsByCategory = (worlds) => {
-    return worlds.reduce((groups, world) => {
-        const category = world.category || 'Uncategorized';
-        if (!groups[category]) {
-            groups[category] = [];
-        }
-        groups[category].push(world);
-        return groups;
-    }, {});
+// Helper function to format date safely
+const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date) 
+        ? date.toLocaleString()
+        : 'N/A';
 };
 
 export default function WorldsTab() {
@@ -89,7 +86,12 @@ export default function WorldsTab() {
                 }
             });
             const data = await response.json();
-            setWorlds(data);
+            console.log('Received world data:', data[0]);
+            // Sort worlds by updatedAt date
+            const sortedWorlds = data.sort((a, b) => 
+                new Date(b.updatedAt) - new Date(a.updatedAt)
+            );
+            setWorlds(sortedWorlds);
         } catch (error) {
             console.error('Error fetching worlds:', error);
         } finally {
@@ -392,7 +394,7 @@ export default function WorldsTab() {
             <View style={styles.listSection}>
                 <Text style={styles.sectionTitle}>Story Worlds</Text>
                 
-                {/* Category filter */}
+                {/* Add category filter */}
                 <ScrollView 
                     horizontal 
                     showsHorizontalScrollIndicator={false}
@@ -417,99 +419,125 @@ export default function WorldsTab() {
                     ))}
                 </ScrollView>
 
-                {/* Worlds list with category subtitles */}
-                {selectedCategory === 'all' ? (
-                    // Show all categories with subtitles
-                    Object.entries(groupWorldsByCategory(worlds)).map(([category, categoryWorlds]) => (
-                        <View key={category}>
-                            <Text style={styles.categorySubtitle}>{category}</Text>
-                            {categoryWorlds.map(world => (
-                                <View key={world._id} style={styles.worldCard}>
-                                    <View style={styles.worldHeader}>
-                                        <View style={styles.worldTitleRow}>
-                                            <Text style={styles.worldName}>{world.name}</Text>
-                                            <TouchableOpacity 
-                                                style={[styles.statusBadge, world.active ? styles.activeBadge : styles.inactiveBadge]}
-                                                onPress={() => toggleWorldActive(world)}
-                                            >
-                                                <Text style={styles.statusText}>
-                                                    {world.active ? 'Active' : 'Inactive'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                    <Text style={styles.worldCategory}>Category: {world.category}</Text>
-                                    <Text style={styles.worldDescription}>{world.description}</Text>
+                {/* Use filteredWorlds instead of worlds */}
+                {filteredWorlds.map(world => (
+                    <View key={world._id} style={styles.worldCard}>
+                        {editingWorld === world._id ? (
+                            // Edit form should be here
+                            <>
+                                <TextInput
+                                    style={styles.input}
+                                    value={editedWorld.name}
+                                    onChangeText={text => setEditedWorld(prev => ({...prev, name: text}))}
+                                    placeholder="World Name"
+                                />
+                                <TextInput
+                                    style={styles.input}
+                                    value={editedWorld.category}
+                                    onChangeText={text => setEditedWorld(prev => ({...prev, category: text}))}
+                                    placeholder="Category"
+                                />
+                                <TextInput
+                                    style={[styles.input, styles.textArea]}
+                                    value={editedWorld.description}
+                                    onChangeText={text => setEditedWorld(prev => ({...prev, description: text}))}
+                                    placeholder="Description"
+                                    multiline
+                                />
 
-                                    <Text style={styles.elementTitle}>Key Elements:</Text>
-                                    {world.keyElements.map((element, index) => (
-                                        <Text key={index} style={styles.elementText}>
-                                            {element.description}
-                                        </Text>
-                                    ))}
-
-                                    <View style={styles.cardActions}>
+                                <Text style={styles.subTitle}>Key Elements:</Text>
+                                {editedWorld.keyElements.map((element, index) => (
+                                    <View key={index} style={styles.elementContainer}>
+                                        <TextInput
+                                            style={[styles.input, { flex: 1 }]}
+                                            value={element.description}
+                                            onChangeText={text => updateKeyElement(index, 'description', text, true)}
+                                            placeholder="Element Description"
+                                            multiline
+                                        />
                                         <TouchableOpacity 
-                                            style={[styles.button, styles.editButton]}
-                                            onPress={() => startEditing(world)}
+                                            style={styles.removeButton}
+                                            onPress={() => removeKeyElement(index, true)}
                                         >
-                                            <Text style={styles.buttonText}>Edit</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={[styles.button, styles.deleteButton]}
-                                            onPress={() => deleteWorld(world._id)}
-                                        >
-                                            <Text style={styles.buttonText}>Delete</Text>
+                                            <Text style={styles.buttonText}>Remove</Text>
                                         </TouchableOpacity>
                                     </View>
-                                </View>
-                            ))}
-                        </View>
-                    ))
-                ) : (
-                    // Show only selected category worlds
-                    filteredWorlds.map(world => (
-                        <View key={world._id} style={styles.worldCard}>
-                            <View style={styles.worldHeader}>
-                                <View style={styles.worldTitleRow}>
-                                    <Text style={styles.worldName}>{world.name}</Text>
+                                ))}
+                                <TouchableOpacity 
+                                    style={styles.addButton}
+                                    onPress={() => addKeyElement(true)}
+                                >
+                                    <Text style={styles.buttonText}>Add Element</Text>
+                                </TouchableOpacity>
+
+                                <View style={styles.cardActions}>
                                     <TouchableOpacity 
-                                        style={[styles.statusBadge, world.active ? styles.activeBadge : styles.inactiveBadge]}
-                                        onPress={() => toggleWorldActive(world)}
+                                        style={[styles.button, styles.saveButton]}
+                                        onPress={saveEdits}
                                     >
-                                        <Text style={styles.statusText}>
-                                            {world.active ? 'Active' : 'Inactive'}
-                                        </Text>
+                                        <Text style={styles.buttonText}>Save</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.button, styles.cancelButton]}
+                                        onPress={cancelEditing}
+                                    >
+                                        <Text style={styles.buttonText}>Cancel</Text>
                                     </TouchableOpacity>
                                 </View>
-                            </View>
-                            <Text style={styles.worldCategory}>Category: {world.category}</Text>
-                            <Text style={styles.worldDescription}>{world.description}</Text>
+                            </>
+                        ) : (
+                            // Display mode
+                            <>
+                                <View style={styles.worldHeader}>
+                                    <View style={styles.worldTitleRow}>
+                                        <Text style={styles.worldName}>{world.name}</Text>
+                                        <TouchableOpacity 
+                                            style={[styles.statusBadge, world.active ? styles.activeBadge : styles.inactiveBadge]}
+                                            onPress={() => toggleWorldActive(world)}
+                                        >
+                                            <Text style={styles.statusText}>
+                                                {world.active ? 'Active' : 'Inactive'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                                <Text style={styles.worldCategory}>Category: {world.category}</Text>
+                                <Text style={styles.worldDescription}>{world.description}</Text>
 
-                            <Text style={styles.elementTitle}>Key Elements:</Text>
-                            {world.keyElements.map((element, index) => (
-                                <Text key={index} style={styles.elementText}>
-                                    {element.description}
-                                </Text>
-                            ))}
+                                <Text style={styles.elementTitle}>Key Elements:</Text>
+                                {world.keyElements.map((element, index) => (
+                                    <Text key={index} style={styles.elementText}>
+                                        {element.description}
+                                    </Text>
+                                ))}
 
-                            <View style={styles.cardActions}>
-                                <TouchableOpacity 
-                                    style={[styles.button, styles.editButton]}
-                                    onPress={() => startEditing(world)}
-                                >
-                                    <Text style={styles.buttonText}>Edit</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity 
-                                    style={[styles.button, styles.deleteButton]}
-                                    onPress={() => deleteWorld(world._id)}
-                                >
-                                    <Text style={styles.buttonText}>Delete</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    ))
-                )}
+                                <View style={styles.datesContainer}>
+                                    <Text style={styles.dateText}>
+                                        Created: {formatDate(world.createdAt)}
+                                    </Text>
+                                    <Text style={styles.dateText}>
+                                        Modified: {formatDate(world.updatedAt)}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.cardActions}>
+                                    <TouchableOpacity 
+                                        style={[styles.button, styles.editButton]}
+                                        onPress={() => startEditing(world)}
+                                    >
+                                        <Text style={styles.buttonText}>Edit</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.button, styles.deleteButton]}
+                                        onPress={() => deleteWorld(world._id)}
+                                    >
+                                        <Text style={styles.buttonText}>Delete</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
+                    </View>
+                ))}
             </View>
 
             <JsonFormatModal
@@ -748,27 +776,19 @@ const styles = StyleSheet.create({
     categoryButtonTextActive: {
         color: '#fff',
     },
-    categorySection: {
-        marginTop: 20,
+    datesContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 15,
         marginBottom: 10,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
     },
-    categoryTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 10,
-        paddingBottom: 5,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    categorySubtitle: {
-        fontSize: 16,
-        fontWeight: '600',
+    dateText: {
+        fontSize: 12,
         color: '#666',
-        marginTop: 20,
-        marginBottom: 10,
-        paddingLeft: 5,
-        borderLeftWidth: 3,
-        borderLeftColor: '#007AFF',
-    }
+        fontStyle: 'italic',
+    },
 }); 
