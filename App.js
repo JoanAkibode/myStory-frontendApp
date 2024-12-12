@@ -4,9 +4,11 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
-import * as Linking from 'expo-linking';
 import DashboardScreen from './src/screens/DashboardScreen';
 import AdminScreen from './src/screens/AdminScreen';
+import StorySettingsScreen from './src/screens/StorySettingsScreen';
+import StoryReadingScreen from './src/screens/StoryReadingScreen';
+import * as Linking from 'expo-linking';
 
 const Stack = createNativeStackNavigator();
 
@@ -31,7 +33,8 @@ const linking = {
             },
             Home: 'home',
             Dashboard: 'dashboard',
-            Admin: 'admin-panel-secret'
+            Admin: 'admin-panel-secret',
+            StorySettings: 'story-settings'
         }
     }
 };
@@ -49,7 +52,7 @@ function App() {
     console.log('App render - User state:', !!user, 'Loading:', loading);
 
     if (loading) {
-        return null; // or a loading screen
+        return null;
     }
 
     return (
@@ -96,6 +99,22 @@ function App() {
                         title: 'Admin Panel',
                         headerLeft: null,
                         gestureEnabled: false
+                    }}
+                />
+                <Stack.Screen 
+                    name="StorySettings" 
+                    component={StorySettingsScreen}
+                    options={{
+                        title: 'Story Settings',
+                        headerBackTitle: 'Back'
+                    }}
+                />
+                <Stack.Screen 
+                    name="StoryReading" 
+                    component={StoryReadingScreen}
+                    options={{
+                        title: 'Story',
+                        headerBackTitle: 'Back'
                     }}
                 />
             </Stack.Navigator>

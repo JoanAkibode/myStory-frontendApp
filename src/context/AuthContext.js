@@ -61,15 +61,34 @@ export const AuthProvider = ({ children }) => {
     };
 
     // Logout function: removes stored auth data and clears user state
-    const logout = async () => {
-        console.log('Logging out...');
+    const signOut = async () => {
         try {
-            await AsyncStorage.removeItem('user');
-            await AsyncStorage.removeItem('token');
-            console.log('Auth data removed successfully');
+            const token = await AsyncStorage.getItem('token');
+            
+            // Notify backend about logout
+            if (token) {
+                try {
+                    await fetch('http://192.168.1.33:8000/auth/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error notifying backend about logout:', error);
+                }
+            }
+
+            // Clear local storage
+            await AsyncStorage.clear();
+
+            // Clear auth state
             setUser(null);
+            setToken(null);
+            
+            console.log('Successfully logged out');
         } catch (error) {
-            console.error('Error removing auth data:', error);
+            console.error('Error during logout:', error);
         }
     };
 
@@ -79,8 +98,7 @@ export const AuthProvider = ({ children }) => {
     //              login (function to log users in)
     //              logout (function to log users out)
     return (
-        <AuthContext.Provider value={{ user, loading, login, logout }}>
-            {/* Only render children when we're done checking stored auth */}
+        <AuthContext.Provider value={{ user, loading, login, signOut }}>
             {!loading && children}
         </AuthContext.Provider>
     );
