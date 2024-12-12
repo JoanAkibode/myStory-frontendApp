@@ -17,7 +17,7 @@ export const googleAuth = {
             // Add platform parameter to URL
             const platform = Platform.OS === 'web' ? 'web' : 'mobile';
             const response = await fetch(`${BACKEND_URL}/auth/google?platform=${platform}`, {
-                method: 'GET',
+                method: 'POST',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
