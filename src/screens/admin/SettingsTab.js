@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import JsonFormatModal from '../../components/JsonFormatModal';
@@ -18,11 +18,25 @@ export default function SettingsTab() {
     const [newSetting, setNewSetting] = useState({
         name: '',
         systemRole: '',
-        model: '',
-        temperature: 0,
-        minWords: 0,
-        maxWords: 0,
-        active: false
+        model: 'gpt-3.5-turbo',
+        temperature: 0.7,
+        minWords: 200,
+        maxWords: 400,
+        active: false,
+        influenceLevels: [
+            {
+                level: 'minimal',
+                description: "Events have a subtle impact on the story, appearing as minor background elements."
+            },
+            {
+                level: 'moderate',
+                description: "Events play a supporting role in the story, influencing but not dominating the narrative."
+            },
+            {
+                level: 'strong',
+                description: "Events are central to the story, directly driving the plot and character actions."
+            }
+        ]
     });
     const [jsonInput, setJsonInput] = useState('');
     const [showFormat, setShowFormat] = useState(false);
@@ -75,6 +89,20 @@ export default function SettingsTab() {
 
     const saveSetting = async () => {
         try {
+            // Validate required fields
+            if (!newSetting.name.trim()) {
+                Alert.alert('Error', 'Setting name is required');
+                return;
+            }
+            if (!newSetting.systemRole.trim()) {
+                Alert.alert('Error', 'System role is required');
+                return;
+            }
+            if (!newSetting.model.trim()) {
+                Alert.alert('Error', 'Model is required');
+                return;
+            }
+
             const token = await AsyncStorage.getItem('token');
             const response = await fetch('http://192.168.1.33:8000/story-settings', {
                 method: 'POST',
@@ -82,8 +110,18 @@ export default function SettingsTab() {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(newSetting)
+                body: JSON.stringify({
+                    ...newSetting,
+                    // Ensure model is not empty
+                    model: newSetting.model.trim() || 'gpt-3.5-turbo'
+                })
             });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to create setting');
+            }
+
             const data = await response.json();
             
             if (Array.isArray(data)) {
@@ -92,17 +130,33 @@ export default function SettingsTab() {
                 setSettings(prev => [...prev, data]);
             }
 
+            // Reset form
             setNewSetting({
                 name: '',
                 systemRole: '',
-                model: '',
-                temperature: 0,
-                minWords: 0,
-                maxWords: 0,
-                active: false
+                model: 'gpt-3.5-turbo',
+                temperature: 0.7,
+                minWords: 200,
+                maxWords: 400,
+                active: false,
+                influenceLevels: [
+                    {
+                        level: 'minimal',
+                        description: "Events have a subtle impact on the story, appearing as minor background elements."
+                    },
+                    {
+                        level: 'moderate',
+                        description: "Events play a supporting role in the story, influencing but not dominating the narrative."
+                    },
+                    {
+                        level: 'strong',
+                        description: "Events are central to the story, directly driving the plot and character actions."
+                    }
+                ]
             });
         } catch (error) {
             console.error('Error saving setting:', error);
+            Alert.alert('Error', error.message);
         }
     };
 
@@ -209,7 +263,34 @@ export default function SettingsTab() {
 
     const startEditing = (setting) => {
         setEditingSetting(setting._id);
-        setEditedSetting({...setting});
+        const defaultLevels = [
+            {
+                level: 'minimal',
+                description: "Events have a subtle impact on the story, appearing as minor background elements."
+            },
+            {
+                level: 'moderate',
+                description: "Events play a supporting role in the story, influencing but not dominating the narrative."
+            },
+            {
+                level: 'strong',
+                description: "Events are central to the story, directly driving the plot and character actions."
+            }
+        ];
+
+        // Merge existing descriptions with default structure
+        const mergedLevels = defaultLevels.map(defaultLevel => {
+            const existingLevel = setting.influenceLevels?.find(l => l.level === defaultLevel.level);
+            return {
+                ...defaultLevel,
+                description: existingLevel?.description || defaultLevel.description
+            };
+        });
+
+        setEditedSetting({
+            ...setting,
+            influenceLevels: mergedLevels
+        });
     };
 
     const cancelEditing = () => {
@@ -338,7 +419,33 @@ export default function SettingsTab() {
                     onChangeText={(text) => setNewSetting(prev => ({...prev, maxWords: parseInt(text) || 0}))}
                     keyboardType="numeric"
                 />
-                
+
+                <View style={styles.section}>
+                    <Text style={styles.subTitle}>Event Influence Levels</Text>
+                    
+                    {(newSetting.influenceLevels || []).map((influence, index) => (
+                        <View key={influence.level} style={styles.influenceLevelInput}>
+                            <Text style={styles.inputLabel}>
+                                {influence?.level?.charAt(0).toUpperCase() + influence?.level?.slice(1)} Impact
+                            </Text>
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                multiline
+                                numberOfLines={4}
+                                value={influence.description}
+                                onChangeText={(text) => {
+                                    const updatedLevels = [...(newSetting.influenceLevels || [])];
+                                    updatedLevels[index] = { ...influence, description: text };
+                                    setNewSetting(prev => ({
+                                        ...prev,
+                                        influenceLevels: updatedLevels
+                                    }));
+                                }}
+                            />
+                        </View>
+                    ))}
+                </View>
+
                 <TouchableOpacity style={styles.button} onPress={saveSetting}>
                     <Text style={styles.buttonText}>Create Setting</Text>
                 </TouchableOpacity>
@@ -405,6 +512,36 @@ export default function SettingsTab() {
                                     keyboardType="numeric"
                                 />
 
+                                <View style={styles.section}>
+                                    <Text style={styles.subTitle}>Event Influence Levels</Text>
+                                    
+                                    {(editedSetting?.influenceLevels || []).map((influence, index) => {
+                                        if (!influence || !influence.level) return null;
+                                        return (
+                                            <View key={influence.level} style={styles.influenceLevelInput}>
+                                                <Text style={styles.inputLabel}>
+                                                    {influence.level.charAt(0).toUpperCase() + influence.level.slice(1)} Impact
+                                                </Text>
+                                                <TextInput
+                                                    style={[styles.input, styles.textArea]}
+                                                    multiline
+                                                    numberOfLines={4}
+                                                    value={influence.description || ''}
+                                                    onChangeText={(text) => {
+                                                        const updatedLevels = [...(editedSetting.influenceLevels || [])];
+                                                        updatedLevels[index] = { ...influence, description: text };
+                                                        setEditedSetting(prev => ({
+                                                            ...prev,
+                                                            influenceLevels: updatedLevels
+                                                        }));
+                                                    }}
+                                                    placeholder="Description"
+                                                />
+                                            </View>
+                                        );
+                                    })}
+                                </View>
+
                                 <View style={styles.cardActions}>
                                     <TouchableOpacity 
                                         style={[styles.button, styles.saveButton]}
@@ -457,14 +594,33 @@ export default function SettingsTab() {
                                     <Text style={styles.cardValue}>{setting.minWords}-{setting.maxWords}</Text>
                                 </View>
 
-                                <View style={styles.datesContainer}>
-                                    <Text style={styles.dateText}>
-                                        Created: {formatDate(setting.createdAt)}
-                                    </Text>
-                                    <Text style={styles.dateText}>
-                                        Modified: {formatDate(setting.updatedAt)}
-                                    </Text>
+                                
+                                <View style={styles.influenceLevels}>
+                                    <Text style={styles.influenceTitle}>Event Influence Levels:</Text>
+                                    
+                                    {(setting.influenceLevels || []).map(influence => {
+                                        if (!influence || !influence.level) return null;
+                                        return (
+                                            <View key={influence.level} style={styles.influenceLevel}>
+                                                <Text style={styles.influenceLevelTitle}>
+                                                    {influence.level.charAt(0).toUpperCase() + influence.level.slice(1)}:
+                                                </Text>
+                                                <Text style={styles.influenceLevelDesc}>
+                                                    {influence.description || 'No description'}
+                                                </Text>
+                                            </View>
+                                        );
+                                    })}
                                 </View>
+
+                                                                    <View style={styles.datesContainer}>
+                                        <Text style={styles.dateText}>
+                                            Created: {formatDate(setting.createdAt)}
+                                        </Text>
+                                        <Text style={styles.dateText}>
+                                            Modified: {formatDate(setting.updatedAt)}
+                                        </Text>
+                                    </View>
 
                                 <View style={styles.cardActions}>
                                     <TouchableOpacity 
@@ -480,6 +636,7 @@ export default function SettingsTab() {
                                         <Text style={styles.buttonText}>Delete</Text>
                                     </TouchableOpacity>
                                 </View>
+
                             </>
                         )}
                     </View>
@@ -566,8 +723,10 @@ const styles = StyleSheet.create({
         backgroundColor: '#f44336',
     },
     textArea: {
-        height: 100,
-        textAlignVertical: 'top'
+        minHeight: 100,
+        maxHeight: 200,
+        textAlignVertical: 'top',
+        paddingTop: 10,
     },
     helpButton: {
         backgroundColor: '#007AFF',
@@ -681,5 +840,54 @@ const styles = StyleSheet.create({
     },
     cancelButton: {
         backgroundColor: '#666'
-    }
+    },
+    section: {
+        marginTop: 20,
+        paddingTop: 20,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+    influenceLevels: {
+        marginTop: 15,
+        paddingTop: 10,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+    influenceTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    influenceLevel: {
+        marginBottom: 8,
+    },
+    influenceLevelTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#666',
+    },
+    influenceLevelDesc: {
+        fontSize: 14,
+        color: '#333',
+        marginTop: 2,
+    },
+    influenceLevelInput: {
+        marginBottom: 15,
+    },
+    addButton: {
+        backgroundColor: '#2196F3',
+        marginTop: 10,
+    },
+    levelHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    levelInput: {
+        flex: 1,
+    },
+    removeButton: {
+        backgroundColor: '#f44336',
+        paddingHorizontal: 10,
+    },
 }); 

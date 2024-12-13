@@ -16,6 +16,7 @@ export default function StoriesScreen({ navigation }) {
     const [stories, setStories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
+    const [resetting, setResetting] = useState(false);
 
     useEffect(() => {
         fetchStories();
@@ -99,6 +100,46 @@ export default function StoriesScreen({ navigation }) {
         }
     };
 
+    const startNewStory = async () => {
+        try {
+            setResetting(true);
+            const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                console.log('No token found, redirecting to login');
+                await signOut();
+                navigation.replace('Login');
+                return;
+            }
+
+            const response = await fetch('http://192.168.1.33:8000/stories/reset', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401) {
+                console.log('Token expired or invalid, redirecting to login');
+                await signOut();
+                navigation.replace('Login');
+                return;
+            }
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to reset story');
+            }
+
+            await fetchStories();
+            Alert.alert('Success', 'Ready to start a new story!');
+        } catch (error) {
+            console.error('Error resetting story:', error);
+            Alert.alert('Error', error.message);
+        } finally {
+            setResetting(false);
+        }
+    };
+
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
@@ -118,22 +159,34 @@ export default function StoriesScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
-            <TouchableOpacity 
-                style={styles.generateButton}
-                onPress={generateTodayStory}
-                disabled={generating}
-            >
-                <Text style={styles.generateButtonText}>
-                    {generating ? 'Generating Story...' : "Write Today's Story"}
-                </Text>
-                {generating && (
-                    <ActivityIndicator 
-                        size="small" 
-                        color="#fff" 
-                        style={styles.buttonLoader}
-                    />
-                )}
-            </TouchableOpacity>
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity 
+                    style={styles.generateButton}
+                    onPress={generateTodayStory}
+                    disabled={generating}
+                >
+                    <Text style={styles.generateButtonText}>
+                        {generating ? 'Generating Story...' : "Write Today's Story"}
+                    </Text>
+                    {generating && (
+                        <ActivityIndicator 
+                            size="small" 
+                            color="#fff" 
+                            style={styles.buttonLoader}
+                        />
+                    )}
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={[styles.resetButton, resetting && styles.disabledButton]}
+                    onPress={startNewStory}
+                    disabled={resetting}
+                >
+                    <Text style={styles.resetButtonText}>
+                        {resetting ? 'Resetting...' : 'Start New Story'}
+                    </Text>
+                </TouchableOpacity>
+            </View>
 
             <ScrollView style={styles.storiesList}>
                 {stories.map((story, index) => (
@@ -209,5 +262,26 @@ const styles = StyleSheet.create({
     storyContent: {
         fontSize: 16,
         color: '#333',
+    },
+    buttonContainer: {
+        padding: 15,
+        gap: 10,
+    },
+    resetButton: {
+        backgroundColor: '#FF3B30',
+        padding: 15,
+        borderRadius: 10,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    resetButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    disabledButton: {
+        opacity: 0.5,
     },
 }); 
