@@ -149,6 +149,15 @@ export default function StoriesScreen({ navigation }) {
         });
     };
 
+    const parseStoryTitle = (content) => {
+        const titleMatch = content?.match(/\*\*Chapter \d+: (.*?)\*\*/);
+        return titleMatch ? titleMatch[1] : 'Untitled Chapter';
+    };
+
+    const parseStoryContent = (content) => {
+        return content?.replace(/\*\*Chapter \d+: .*?\*\*\n\n/, '').trim() || '';
+    };
+
     if (loading) {
         return (
             <View style={styles.centerContainer}>
@@ -195,11 +204,12 @@ export default function StoriesScreen({ navigation }) {
                         style={styles.storyCard}
                         onPress={() => navigation.navigate('StoryReading', { storyId: story._id })}
                     >
-                        <Text style={styles.storyDate}>
-                            Day {story.dayNumber} - {formatDate(story.createdAt)}
-                        </Text>
+                        <View style={styles.storyHeader}>
+                            <Text style={styles.storyDate}>Day {story.dayNumber}</Text>
+                            <Text style={styles.storyTitle}>{parseStoryTitle(story.content)}</Text>
+                        </View>
                         <Text style={styles.storyContent}>
-                            {story.content?.substring(0, 150)}...
+                            {parseStoryContent(story.content)?.substring(0, 150)}...
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -254,14 +264,24 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 3,
     },
+    storyHeader: {
+        marginBottom: 8,
+    },
     storyDate: {
         fontSize: 14,
         color: '#666',
-        marginBottom: 5,
+        marginBottom: 4,
+    },
+    storyTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 8,
     },
     storyContent: {
-        fontSize: 16,
-        color: '#333',
+        fontSize: 14,
+        color: '#666',
+        lineHeight: 20,
     },
     buttonContainer: {
         padding: 15,

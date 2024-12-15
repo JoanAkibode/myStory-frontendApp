@@ -18,6 +18,15 @@ const formatEventTime = (event) => {
     return new Date(eventTime).toLocaleString();
 };
 
+const parseStoryTitle = (content) => {
+    const titleMatch = content?.match(/\*\*Chapter \d+: (.*?)\*\*/);
+    return titleMatch ? titleMatch[1] : 'Untitled Chapter';
+};
+
+const parseStoryContent = (content) => {
+    return content?.replace(/\*\*Chapter \d+: .*?\*\*\n\n/, '').trim() || '';
+};
+
 export default function StoryReadingScreen({ route, navigation }) {
     const { storyId } = route.params;
     const [story, setStory] = useState(null);
@@ -70,7 +79,10 @@ export default function StoryReadingScreen({ route, navigation }) {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.storyContainer}>
-                <Text style={styles.title}>{story.title || 'Untitled Story'}</Text>
+                <View style={styles.storyHeader}>
+                    <Text style={styles.storyTitle}>Chapter {story.dayNumber}</Text>
+                    <Text style={styles.chapterTitle}>{parseStoryTitle(story.content)}</Text>
+                </View>
                 <Text style={styles.date}>
                     {story.createdAt ? new Date(story.createdAt).toLocaleDateString() : 'Date not available'}
                 </Text>
@@ -84,7 +96,7 @@ export default function StoryReadingScreen({ route, navigation }) {
                     </Text>
                 </View>
 
-                <Text style={styles.content}>{story.content || 'No content available'}</Text>
+                <Text style={styles.content}>{parseStoryContent(story.content)}</Text>
 
                 {story.events && story.events.length > 0 && (
                     <View style={styles.eventsSection}>
@@ -201,5 +213,20 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         marginTop: 5,
+    },
+    settingsName: {
+        fontSize: 14,
+        color: '#666',
+        fontStyle: 'italic',
+        marginBottom: 10,
+    },
+    storyHeader: {
+        marginBottom: 15,
+    },
+    chapterTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 15,
+        color: '#333',
     },
 }); 

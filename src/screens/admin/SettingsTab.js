@@ -23,20 +23,9 @@ export default function SettingsTab() {
         minWords: 200,
         maxWords: 400,
         active: false,
-        influenceLevels: [
-            {
-                level: 'minimal',
-                description: "Events have a subtle impact on the story, appearing as minor background elements."
-            },
-            {
-                level: 'moderate',
-                description: "Events play a supporting role in the story, influencing but not dominating the narrative."
-            },
-            {
-                level: 'strong',
-                description: "Events are central to the story, directly driving the plot and character actions."
-            }
-        ]
+        minimal: "Events have a subtle impact on the story, appearing as minor background elements.",
+        moderate: "Events play a supporting role in the story, influencing but not dominating the narrative.",
+        strong: "Events are central to the story, directly driving the plot and character actions."
     });
     const [jsonInput, setJsonInput] = useState('');
     const [showFormat, setShowFormat] = useState(false);
@@ -139,20 +128,9 @@ export default function SettingsTab() {
                 minWords: 200,
                 maxWords: 400,
                 active: false,
-                influenceLevels: [
-                    {
-                        level: 'minimal',
-                        description: "Events have a subtle impact on the story, appearing as minor background elements."
-                    },
-                    {
-                        level: 'moderate',
-                        description: "Events play a supporting role in the story, influencing but not dominating the narrative."
-                    },
-                    {
-                        level: 'strong',
-                        description: "Events are central to the story, directly driving the plot and character actions."
-                    }
-                ]
+                minimal: "Events have a subtle impact on the story, appearing as minor background elements.",
+                moderate: "Events play a supporting role in the story, influencing but not dominating the narrative.",
+                strong: "Events are central to the story, directly driving the plot and character actions."
             });
         } catch (error) {
             console.error('Error saving setting:', error);
@@ -423,24 +401,23 @@ export default function SettingsTab() {
                 <View style={styles.section}>
                     <Text style={styles.subTitle}>Event Influence Levels</Text>
                     
-                    {(newSetting.influenceLevels || []).map((influence, index) => (
-                        <View key={influence.level} style={styles.influenceLevelInput}>
+                    {['minimal', 'moderate', 'strong'].map(level => (
+                        <View key={level} style={styles.influenceLevelInput}>
                             <Text style={styles.inputLabel}>
-                                {influence?.level?.charAt(0).toUpperCase() + influence?.level?.slice(1)} Impact
+                                {level.charAt(0).toUpperCase() + level.slice(1)} Impact
                             </Text>
                             <TextInput
                                 style={[styles.input, styles.textArea]}
                                 multiline
                                 numberOfLines={4}
-                                value={influence.description}
+                                value={newSetting[level] || ''}
                                 onChangeText={(text) => {
-                                    const updatedLevels = [...(newSetting.influenceLevels || [])];
-                                    updatedLevels[index] = { ...influence, description: text };
                                     setNewSetting(prev => ({
                                         ...prev,
-                                        influenceLevels: updatedLevels
+                                        [level]: text
                                     }));
                                 }}
+                                placeholder="Description"
                             />
                         </View>
                     ))}
@@ -515,31 +492,26 @@ export default function SettingsTab() {
                                 <View style={styles.section}>
                                     <Text style={styles.subTitle}>Event Influence Levels</Text>
                                     
-                                    {(editedSetting?.influenceLevels || []).map((influence, index) => {
-                                        if (!influence || !influence.level) return null;
-                                        return (
-                                            <View key={influence.level} style={styles.influenceLevelInput}>
-                                                <Text style={styles.inputLabel}>
-                                                    {influence.level.charAt(0).toUpperCase() + influence.level.slice(1)} Impact
-                                                </Text>
-                                                <TextInput
-                                                    style={[styles.input, styles.textArea]}
-                                                    multiline
-                                                    numberOfLines={4}
-                                                    value={influence.description || ''}
-                                                    onChangeText={(text) => {
-                                                        const updatedLevels = [...(editedSetting.influenceLevels || [])];
-                                                        updatedLevels[index] = { ...influence, description: text };
-                                                        setEditedSetting(prev => ({
-                                                            ...prev,
-                                                            influenceLevels: updatedLevels
-                                                        }));
-                                                    }}
-                                                    placeholder="Description"
-                                                />
-                                            </View>
-                                        );
-                                    })}
+                                    {['minimal', 'moderate', 'strong'].map(level => (
+                                        <View key={level} style={styles.influenceLevelInput}>
+                                            <Text style={styles.inputLabel}>
+                                                {level.charAt(0).toUpperCase() + level.slice(1)} Impact
+                                            </Text>
+                                            <TextInput
+                                                style={[styles.input, styles.textArea]}
+                                                multiline
+                                                numberOfLines={4}
+                                                value={editedSetting?.[level] || ''}
+                                                onChangeText={(text) => {
+                                                    setEditedSetting(prev => ({
+                                                        ...prev,
+                                                        [level]: text
+                                                    }));
+                                                }}
+                                                placeholder="Description"
+                                            />
+                                        </View>
+                                    ))}
                                 </View>
 
                                 <View style={styles.cardActions}>
@@ -598,19 +570,16 @@ export default function SettingsTab() {
                                 <View style={styles.influenceLevels}>
                                     <Text style={styles.influenceTitle}>Event Influence Levels:</Text>
                                     
-                                    {(setting.influenceLevels || []).map(influence => {
-                                        if (!influence || !influence.level) return null;
-                                        return (
-                                            <View key={influence.level} style={styles.influenceLevel}>
-                                                <Text style={styles.influenceLevelTitle}>
-                                                    {influence.level.charAt(0).toUpperCase() + influence.level.slice(1)}:
-                                                </Text>
-                                                <Text style={styles.influenceLevelDesc}>
-                                                    {influence.description || 'No description'}
-                                                </Text>
-                                            </View>
-                                        );
-                                    })}
+                                    {['minimal', 'moderate', 'strong'].map(level => (
+                                        <View key={level} style={styles.influenceLevel}>
+                                            <Text style={styles.influenceLevelTitle}>
+                                                {level.charAt(0).toUpperCase() + level.slice(1)}:
+                                            </Text>
+                                            <Text style={styles.influenceLevelDesc}>
+                                                {setting[level] || 'No description'}
+                                            </Text>
+                                        </View>
+                                    ))}
                                 </View>
 
                                                                     <View style={styles.datesContainer}>
