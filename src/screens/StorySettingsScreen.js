@@ -7,19 +7,110 @@ import {
     TouchableOpacity,
     ScrollView,
     Alert,
-    ActivityIndicator
+    ActivityIndicator,
+    Modal
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Common timezones list
+const TIMEZONES = [
+    { label: 'Pacific Time (PT)', value: 'America/Los_Angeles' },
+    { label: 'Mountain Time (MT)', value: 'America/Denver' },
+    { label: 'Central Time (CT)', value: 'America/Chicago' },
+    { label: 'Eastern Time (ET)', value: 'America/New_York' },
+    { label: 'Greenwich Mean Time (GMT)', value: 'GMT' },
+    { label: 'Central European Time (CET)', value: 'Europe/Paris' },
+    { label: 'Eastern European Time (EET)', value: 'Europe/Helsinki' },
+    // Add more as needed
+];
 
 export default function StorySettingsScreen() {
     const [settings, setSettings] = useState({
         preferredName: '',
         pronouns: '',
         eventInfluenceLevel: 'moderate',
-        chosenStoryWorldCategory: ''
+        chosenStoryWorldCategory: '',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
     const [loading, setLoading] = useState(true);
     const [categories, setCategories] = useState([]);
+    const [selectedTime, setSelectedTime] = useState(720); // Starting at noon (12 * 60)
+    const [isDragging, setIsDragging] = useState(false);
+    const [showTimezoneModal, setShowTimezoneModal] = useState(false);
+
+    const HourMarkers = () => {
+        // Generate markers for every hour (24 hours)
+        return Array.from({ length: 25 }, (_, i) => {
+            const left = `${(i / 24) * 100}%`;
+            return (
+                <View 
+                    key={i} 
+                    style={[
+                        styles.hourMarker,
+                        { left },
+                        // Make noon and midnight markers taller
+                        (i === 0 || i === 12 || i === 24) && styles.majorHourMarker
+                    ]}
+                />
+            );
+        });
+    };
+
+    const formatTimePoint = (minutes) => {
+        const hour = Math.floor(minutes / 60);
+        const minute = minutes % 60;
+        // First determine if it's the following day
+        const isFollowingDay = hour >= 24 || (hour >= 0 && hour < 12);
+        
+        // Adjust hour for display
+        let displayHour;
+        let period;
+        
+        if (hour >= 24) {
+            // After midnight on following day
+            displayHour = hour - 24;
+            period = displayHour >= 12 ? 'PM' : 'AM';
+            displayHour = displayHour > 12 ? displayHour - 12 : displayHour || 12;
+        } else {
+            // Same day
+            displayHour = hour > 12 ? hour - 12 : hour || 12;
+            period = hour >= 12 ? 'PM' : 'AM';
+        }
+        
+        return `${displayHour}:${minute.toString().padStart(2, '0')} ${period} ${
+            isFollowingDay ? 'the following day' : 'the day of the events'
+        }`;
+    };
+
+    const handleTimelineTouch = (event) => {
+        const { locationX } = event.nativeEvent;
+        const timelineWidth = event.currentTarget.offsetWidth;
+        
+        // Convert position to minutes (24 hours from noon to noon)
+        const totalMinutes = (locationX / timelineWidth) * 1440 + 720; // Start from noon (720)
+        
+        // Only allow selection between noon (720) and next noon (2160)
+        if (totalMinutes >= 720 && totalMinutes <= 2160) {
+            // Round to nearest 5 minutes
+            const roundedMinutes = Math.round(totalMinutes / 5) * 5;
+            setSelectedTime(roundedMinutes);
+        }
+    };
+
+    const handleTouchMove = (event) => {
+        if (isDragging) {
+            handleTimelineTouch(event);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        setIsDragging(false);
+    };
+
+    const handleTimezoneSelect = (timezone) => {
+        setSettings(prev => ({ ...prev, timezone }));
+        setShowTimezoneModal(false);
+    };
 
     useEffect(() => {
         Promise.all([
@@ -41,7 +132,8 @@ export default function StorySettingsScreen() {
                 preferredName: data.preferredName || '',
                 pronouns: data.pronouns || '',
                 eventInfluenceLevel: data.eventInfluenceLevel || 'moderate',
-                chosenStoryWorldCategory: data.chosenStoryWorldCategory || ''
+                chosenStoryWorldCategory: data.chosenStoryWorldCategory || '',
+                timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
             });
         } catch (error) {
             console.error('Error loading settings:', error);
@@ -79,7 +171,11 @@ export default function StorySettingsScreen() {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(settings)
+                body: JSON.stringify({
+                    ...settings,
+                    deliveryTime: new Date(2023, 0, 1, Math.floor(selectedTime / 60), selectedTime % 60).toISOString(),
+                    timezone: settings.timezone
+                })
             });
 
             if (response.ok) {
@@ -162,6 +258,111 @@ export default function StorySettingsScreen() {
                             </Text>
                         </TouchableOpacity>
                     ))}
+                </View>
+
+                <Text style={styles.label}>Timezone</Text>
+                <TouchableOpacity 
+                    style={styles.timezoneButton}
+                    onPress={() => setShowTimezoneModal(true)}
+                >
+                    <Text style={styles.timezoneButtonText}>
+                        {TIMEZONES.find(tz => tz.value === settings.timezone)?.label || settings.timezone}
+                    </Text>
+                </TouchableOpacity>
+
+                <Modal
+                    visible={showTimezoneModal}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setShowTimezoneModal(false)}
+                >
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <Text style={styles.modalTitle}>Select Timezone</Text>
+                            <ScrollView>
+                                {TIMEZONES.map((tz) => (
+                                    <TouchableOpacity
+                                        key={tz.value}
+                                        style={[
+                                            styles.timezoneOption,
+                                            settings.timezone === tz.value && styles.selectedTimezone
+                                        ]}
+                                        onPress={() => handleTimezoneSelect(tz.value)}
+                                    >
+                                        <Text style={[
+                                            styles.timezoneOptionText,
+                                            settings.timezone === tz.value && styles.selectedTimezoneText
+                                        ]}>
+                                            {tz.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                            <TouchableOpacity 
+                                style={styles.modalCloseButton}
+                                onPress={() => setShowTimezoneModal(false)}
+                            >
+                                <Text style={styles.modalCloseButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+
+                <Text style={styles.label}>Story Delivery Time</Text>
+                <Text style={styles.description}>
+                    Choose when you want to receive your daily story.
+                    Select a time between noon today and noon tomorrow.
+                </Text>
+
+                <View style={styles.timelineContainer}>
+                    {/* Time markers */}
+                    <View style={styles.timeMarkers}>
+                        <View style={styles.timeMarkerColumn}>
+                            <Text style={styles.timeMarker}>Noon</Text>
+                        </View>
+                        <View style={styles.timeMarkerColumn}>
+                            <Text style={styles.dayMarker}>Day of events</Text>
+                        </View>
+                        <View style={styles.timeMarkerColumn}>
+                            <Text style={styles.timeMarker}>Midnight</Text>
+                        </View>
+                        <View style={styles.timeMarkerColumn}>
+                            <Text style={styles.dayMarker}>Following day</Text>
+                        </View>
+                        <View style={styles.timeMarkerColumn}>
+                            <Text style={styles.timeMarker}>Noon</Text>
+                        </View>
+                    </View>
+                    
+                    {/* Timeline */}
+                    <View style={styles.timeline}>
+                        <View style={styles.timelineTrack} />
+                        <HourMarkers />
+                        
+                        {/* Interactive timeline area */}
+                        <View 
+                            style={styles.timelineInteractive}
+                            onStartShouldSetResponder={() => true}
+                            onMoveShouldSetResponder={() => true}
+                            onResponderGrant={handleTimelineTouch}
+                            onResponderMove={handleTimelineTouch}
+                        >
+                            {/* Cursor */}
+                            <View 
+                                style={[
+                                    styles.timeCursor,
+                                    {
+                                        left: `${((selectedTime - 720) / 1440 * 100)}%`
+                                    }
+                                ]} 
+                            />
+                        </View>
+                    </View>
+                    
+                    {/* Selected time display */}
+                    <Text style={styles.selectedTimeText}>
+                        Story will be delivered at {formatTimePoint(selectedTime)}
+                    </Text>
                 </View>
             </View>
 
@@ -269,5 +470,160 @@ const styles = StyleSheet.create({
         color: '#666',
         fontWeight: '500',
         textAlign: 'center',
+    },
+    description: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 20,
+    },
+    timelineContainer: {
+        marginVertical: 20,
+        height: 120,
+        overflow: 'hidden',
+    },
+    timeMarkers: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 10,
+        alignItems: 'center',
+    },
+    timeMarkerColumn: {
+        alignItems: 'center',
+    },
+    timeMarker: {
+        color: '#666',
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    dayMarker: {
+        color: '#666',
+        fontSize: 12,
+    },
+    timeline: {
+        marginTop: 20,
+        height: 40,
+        position: 'relative',
+        backgroundColor: '#f5f5f5',
+        paddingHorizontal: 8,
+    },
+    timelineTrack: {
+        position: 'absolute',
+        top: 19,
+        left: 8,
+        right: 8,
+        height: 2,
+        backgroundColor: '#007AFF',
+        zIndex: 1,
+    },
+    timelineInteractive: {
+        position: 'absolute',
+        top: 0,
+        left: 8,
+        right: 8,
+        bottom: 0,
+        backgroundColor: 'transparent',
+        zIndex: 2,
+    },
+    timeCursor: {
+        position: 'absolute',
+        top: 0,
+        width: 16,
+        height: 40,
+        backgroundColor: '#007AFF',
+        borderRadius: 8,
+        marginLeft: -8,
+        zIndex: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    selectedTimeText: {
+        textAlign: 'center',
+        marginTop: 10,
+        fontSize: 16,
+        color: '#007AFF',
+        fontWeight: '500',
+    },
+    hourMarkers: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '100%',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: 0,
+    },
+    hourMarker: {
+        width: 1,
+        height: 10,
+        backgroundColor: '#ccc',
+        position: 'absolute',
+        top: 15,
+        transform: [{ translateX: 8 }],
+    },
+    majorHourMarker: {
+        height: 15,
+        width: 2,
+        backgroundColor: '#999',
+        top: 12,
+    },
+    timezoneButton: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 20,
+    },
+    timezoneButtonText: {
+        fontSize: 16,
+        color: '#333',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        padding: 20,
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 10,
+        padding: 20,
+        maxHeight: '80%',
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    timezoneOption: {
+        padding: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    selectedTimezone: {
+        backgroundColor: '#007AFF',
+    },
+    timezoneOptionText: {
+        fontSize: 16,
+        color: '#333',
+    },
+    selectedTimezoneText: {
+        color: '#fff',
+    },
+    modalCloseButton: {
+        marginTop: 20,
+        padding: 15,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    modalCloseButtonText: {
+        color: '#666',
+        fontSize: 16,
+        fontWeight: '500',
     },
 }); 
