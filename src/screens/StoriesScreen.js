@@ -6,20 +6,55 @@ import {
     StyleSheet, 
     TouchableOpacity,
     ActivityIndicator,
-    Alert 
+    Alert,
+    RefreshControl
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function StoriesScreen({ navigation }) {
     const { signOut } = useAuth();
     const [stories, setStories] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [generating, setGenerating] = useState(false);
     const [resetting, setResetting] = useState(false);
+    const [lastDeliveryCheck, setLastDeliveryCheck] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         fetchStories();
+        // Check for story one minute after delivery time
+        const checkAfterDelivery = async () => {
+            try {
+                const token = await AsyncStorage.getItem('token');
+                const response = await fetch('http://192.168.1.33:8000/user/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const user = await response.json();
+
+                if (user?.storyDeliveryTime) {
+                    const deliveryTime = new Date();
+                    deliveryTime.setHours(user.storyDeliveryTime.hour);
+                    deliveryTime.setMinutes(user.storyDeliveryTime.minute + 1);
+                    
+                    const now = new Date();
+                    const timeUntilCheck = deliveryTime - now;
+                    
+                    if (timeUntilCheck > 0) {
+                        setTimeout(() => {
+                            checkForTodayStory();
+                            fetchStories();
+                        }, timeUntilCheck);
+                    }
+                }
+            } catch (error) {
+                console.error('Error setting up delivery check:', error);
+            }
+        };
+
+        checkAfterDelivery();
     }, []);
 
     const fetchStories = async () => {
@@ -55,97 +90,13 @@ export default function StoriesScreen({ navigation }) {
         }
     };
 
-    const generateTodayStory = async () => {
-        try {
-            setGenerating(true);
-            const token = await AsyncStorage.getItem('token');
-            if (!token) {
-                console.log('No token found, redirecting to login');
-                await signOut();
-                navigation.replace('Login');
-                return;
-            }
-
-            const response = await fetch('http://192.168.1.33:8000/stories/generate/daily', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.status === 401) {
-                console.log('Token expired or invalid, redirecting to login');
-                await signOut();
-                navigation.replace('Login');
-                return;
-            }
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to generate story');
-            }
-
-            const data = await response.json();
-            await fetchStories(); // Refresh stories list
-            
-            // Navigate to the new story
-            if (data.story && data.story._id) {
-                navigation.navigate('StoryReading', { storyId: data.story._id });
-            }
-        } catch (error) {
-            console.error('Error generating story:', error);
-            Alert.alert('Error', error.message);
-        } finally {
-            setGenerating(false);
-        }
-    };
-
-    const startNewStory = async () => {
-        try {
-            setResetting(true);
-            const token = await AsyncStorage.getItem('token');
-            if (!token) {
-                console.log('No token found, redirecting to login');
-                await signOut();
-                navigation.replace('Login');
-                return;
-            }
-
-            const response = await fetch('http://192.168.1.33:8000/stories/reset', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (response.status === 401) {
-                console.log('Token expired or invalid, redirecting to login');
-                await signOut();
-                navigation.replace('Login');
-                return;
-            }
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to reset story');
-            }
-
-            await fetchStories();
-            Alert.alert('Success', 'Ready to start a new story!');
-        } catch (error) {
-            console.error('Error resetting story:', error);
-            Alert.alert('Error', error.message);
-        } finally {
-            setResetting(false);
-        }
-    };
-
     const formatDate = (dateString) => {
         const date = new Date(dateString);
         return date.toLocaleDateString('en-US', {
             weekday: 'short',
-            month: 'short',
-            day: 'numeric'
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
         });
     };
 
@@ -158,6 +109,37 @@ export default function StoriesScreen({ navigation }) {
         return content?.replace(/\*\*Chapter \d+: .*?\*\*\n\n/, '').trim() || '';
     };
 
+    const checkForTodayStory = async () => {
+        try {
+            const token = await AsyncStorage.getItem('token');
+            const response = await fetch('http://192.168.1.33:8000/stories/today', {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'delivered' && (!lastDeliveryCheck || lastDeliveryCheck !== data.story?._id)) {
+                // New story delivered since last check
+                setLastDeliveryCheck(data.story._id);
+                fetchStories();
+                Alert.alert('New Story', 'Your daily story has arrived!');
+            }
+        } catch (error) {
+            console.error('Error checking for today\'s story:', error);
+        }
+    };
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await Promise.all([
+            fetchStories(),
+            checkForTodayStory()
+        ]);
+        setRefreshing(false);
+    };
+
     if (loading) {
         return (
             <View style={styles.centerContainer}>
@@ -168,36 +150,26 @@ export default function StoriesScreen({ navigation }) {
 
     return (
         <View style={styles.container}>
-            <View style={styles.buttonContainer}>
+            <View style={styles.refreshContainer}>
                 <TouchableOpacity 
-                    style={styles.generateButton}
-                    onPress={generateTodayStory}
-                    disabled={generating}
+                    style={styles.refreshButton}
+                    onPress={handleRefresh}
+                    disabled={refreshing}
                 >
-                    <Text style={styles.generateButtonText}>
-                        {generating ? 'Generating Story...' : "Write Today's Story"}
-                    </Text>
-                    {generating && (
-                        <ActivityIndicator 
-                            size="small" 
-                            color="#fff" 
-                            style={styles.buttonLoader}
-                        />
+                    {refreshing ? (
+                        <ActivityIndicator color="#007AFF" size="small" />
+                    ) : (
+                        <Ionicons name="reload" size={20} color="#007AFF" />
                     )}
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={[styles.resetButton, resetting && styles.disabledButton]}
-                    onPress={startNewStory}
-                    disabled={resetting}
-                >
-                    <Text style={styles.resetButtonText}>
-                        {resetting ? 'Resetting...' : 'Start New Story'}
-                    </Text>
                 </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.storiesList}>
+            <ScrollView 
+                style={styles.storiesList} 
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                }
+            >
                 {stories.map((story, index) => (
                     <TouchableOpacity 
                         key={story._id || index}
@@ -205,11 +177,13 @@ export default function StoriesScreen({ navigation }) {
                         onPress={() => navigation.navigate('StoryReading', { storyId: story._id })}
                     >
                         <View style={styles.storyHeader}>
-                            <Text style={styles.storyDate}>Day {story.dayNumber}</Text>
+                            <Text style={styles.storyDate}>
+                                {formatDate(story.createdAt)} • Day {story.dayNumber}
+                            </Text>
                             <Text style={styles.storyTitle}>{parseStoryTitle(story.content)}</Text>
                         </View>
-                        <Text style={styles.storyContent}>
-                            {parseStoryContent(story.content)?.substring(0, 150)}...
+                        <Text style={styles.storyContent} numberOfLines={3}>
+                            {parseStoryContent(story.content)}
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -248,12 +222,10 @@ const styles = StyleSheet.create({
     },
     storiesList: {
         flex: 1,
-        padding: 15,
     },
     storyCard: {
         backgroundColor: '#fff',
         padding: 15,
-        borderRadius: 10,
         marginBottom: 15,
         shadowColor: '#000',
         shadowOffset: {
@@ -263,6 +235,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 3,
+        width: '100%',
     },
     storyHeader: {
         marginBottom: 8,
@@ -271,6 +244,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         marginBottom: 4,
+        fontStyle: 'italic',
     },
     storyTitle: {
         fontSize: 16,
@@ -282,6 +256,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
         lineHeight: 20,
+        textAlign: 'justify',
     },
     buttonContainer: {
         padding: 15,
@@ -303,5 +278,17 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
         opacity: 0.5,
+    },
+    refreshContainer: {
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    refreshButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#f0f0f0',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 }); 

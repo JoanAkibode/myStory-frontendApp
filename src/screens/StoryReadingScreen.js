@@ -5,7 +5,8 @@ import {
     ScrollView,
     StyleSheet,
     ActivityIndicator,
-    TouchableOpacity
+    TouchableOpacity,
+    Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -34,31 +35,30 @@ export default function StoryReadingScreen({ route, navigation }) {
     const [error, setError] = useState(null);
 
     useEffect(() => {
+        const fetchStory = async () => {
+            try {
+                const token = await AsyncStorage.getItem('token');
+                const response = await fetch(`http://192.168.1.33:8000/stories/${storyId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                console.log('Story data:', data);
+                
+                setStory(data);
+                setLoading(false);
+            } catch (error) {
+                console.error('Error fetching story:', error);
+                Alert.alert('Error', 'Failed to load story');
+                setLoading(false);
+            }
+        };
+
         fetchStory();
     }, [storyId]);
-
-    const fetchStory = async () => {
-        try {
-            const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/stories/${storyId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch story');
-            }
-
-            const data = await response.json();
-            setStory(data);
-        } catch (error) {
-            console.error('Error fetching story:', error);
-            setError('Failed to load story');
-        } finally {
-            setLoading(false);
-        }
-    };
 
     if (loading) {
         return (
@@ -89,10 +89,10 @@ export default function StoryReadingScreen({ route, navigation }) {
                 
                 <View style={styles.worldInfo}>
                     <Text style={styles.worldTitle}>
-                        World: {story.world?.name || 'Unknown'}
+                        World: {story.storyWorldId?.name || 'Unknown'}
                     </Text>
                     <Text style={styles.worldCategory}>
-                        Category: {story.world?.category || 'Unknown'}
+                        Category: {story.storyWorldId?.category || 'Unknown'}
                     </Text>
                 </View>
 

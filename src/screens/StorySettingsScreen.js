@@ -37,6 +37,7 @@ export default function StorySettingsScreen() {
     const [selectedTime, setSelectedTime] = useState(720); // Starting at noon (12 * 60)
     const [isDragging, setIsDragging] = useState(false);
     const [showTimezoneModal, setShowTimezoneModal] = useState(false);
+    const [resetting, setResetting] = useState(false);
 
     const HourMarkers = () => {
         // Generate markers for every hour (24 hours)
@@ -189,6 +190,45 @@ export default function StorySettingsScreen() {
         }
     };
 
+    const startNewStory = async () => {
+        try {
+            setResetting(true);
+            const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                console.log('No token found, redirecting to login');
+                await signOut();
+                navigation.replace('Login');
+                return;
+            }
+
+            const response = await fetch('http://192.168.1.33:8000/stories/reset', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.status === 401) {
+                console.log('Token expired or invalid, redirecting to login');
+                await signOut();
+                navigation.replace('Login');
+                return;
+            }
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to reset story');
+            }
+
+            Alert.alert('Success', 'Ready to start a new story!');
+        } catch (error) {
+            console.error('Error resetting story:', error);
+            Alert.alert('Error', error.message);
+        } finally {
+            setResetting(false);
+        }
+    };
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -199,6 +239,16 @@ export default function StorySettingsScreen() {
 
     return (
         <ScrollView style={styles.container}>
+            <TouchableOpacity 
+                style={styles.resetButton}
+                onPress={startNewStory}
+                disabled={resetting}
+            >
+                <Text style={styles.resetButtonText}>
+                    {resetting ? 'Resetting...' : 'Start New Story Arc'}
+                </Text>
+            </TouchableOpacity>
+
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Story Settings</Text>
                 
@@ -625,5 +675,20 @@ const styles = StyleSheet.create({
         color: '#666',
         fontSize: 16,
         fontWeight: '500',
+    },
+    resetButton: {
+        backgroundColor: '#FF3B30',
+        padding: 15,
+        borderRadius: 10,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        margin: 15,
+    },
+    resetButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
 }); 

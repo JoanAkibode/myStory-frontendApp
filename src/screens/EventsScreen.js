@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, RefreshControl, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function EventsScreen() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('current'); // 'current' or 'past'
+    const [lastEventCheck, setLastEventCheck] = useState(null);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         fetchEvents();
@@ -14,24 +17,31 @@ export default function EventsScreen() {
 
     const fetchEvents = async () => {
         try {
+            setLoading(true);
             const token = await AsyncStorage.getItem('token');
+            if (!token) {
+                await signOut();
+                navigation.replace('Login');
+                return;
+            }
+
             const response = await fetch('http://192.168.1.33:8000/calendar/events', {
                 headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Authorization': `Bearer ${token}`
                 }
             });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+
+            if (response.status === 401) {
+                await signOut();
+                navigation.replace('Login');
+                return;
             }
-            
+
             const data = await response.json();
-            setEvents(data.events || []);
+            setEvents(Array.isArray(data.events) ? data.events : []);
         } catch (error) {
             console.error('Error fetching events:', error);
-            setError('Failed to load events');
+            setEvents([]);
         } finally {
             setLoading(false);
         }
@@ -76,6 +86,11 @@ export default function EventsScreen() {
     };
 
     const filterEvents = () => {
+        if (!Array.isArray(events)) {
+            console.error('Events is not an array:', events);
+            return { current: [], past: [] };
+        }
+
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         yesterday.setHours(0, 0, 0, 0);
@@ -127,6 +142,12 @@ export default function EventsScreen() {
         </View>
     );
 
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await fetchEvents();
+        setRefreshing(false);
+    };
+
     if (loading) {
         return (
             <View style={styles.container}>
@@ -144,10 +165,7 @@ export default function EventsScreen() {
                     style={[styles.tab, activeTab === 'current' && styles.activeTab]}
                     onPress={() => setActiveTab('current')}
                 >
-                    <Text style={[
-                        styles.tabText,
-                        activeTab === 'current' && styles.activeTabText
-                    ]}>
+                    <Text style={[styles.tabText, activeTab === 'current' && styles.activeTabText]}>
                         Current
                     </Text>
                 </TouchableOpacity>
@@ -155,16 +173,32 @@ export default function EventsScreen() {
                     style={[styles.tab, activeTab === 'past' && styles.activeTab]}
                     onPress={() => setActiveTab('past')}
                 >
-                    <Text style={[
-                        styles.tabText,
-                        activeTab === 'past' && styles.activeTabText
-                    ]}>
+                    <Text style={[styles.tabText, activeTab === 'past' && styles.activeTabText]}>
                         Past
                     </Text>
                 </TouchableOpacity>
+                <TouchableOpacity 
+                    style={styles.refreshButton} 
+                    onPress={handleRefresh}
+                    disabled={refreshing}
+                >
+                    {refreshing ? (
+                        <ActivityIndicator color="#007AFF" size="small" />
+                    ) : (
+                        <Ionicons name="reload" size={20} color="#007AFF" />
+                    )}
+                </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.eventList}>
+            <ScrollView 
+                style={styles.eventsList}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                    />
+                }
+            >
                 {activeTab === 'current' ? (
                     current.length === 0 ? (
                         <Text style={styles.noEvents}>No current events</Text>
@@ -282,5 +316,19 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 20,
         color: '#666',
-    }
+    },
+    refreshButton: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#f0f0f0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center',
+        marginRight: 10,
+    },
+    eventsList: {
+        flex: 1,
+        padding: 15,
+    },
 }); 
