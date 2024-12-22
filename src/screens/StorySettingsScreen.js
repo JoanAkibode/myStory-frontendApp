@@ -30,6 +30,7 @@ export default function StorySettingsScreen() {
         pronouns: '',
         eventInfluenceLevel: 'moderate',
         chosenStoryWorldCategory: '',
+        numberOfWords: 250,
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     });
     const [loading, setLoading] = useState(true);
@@ -134,6 +135,7 @@ export default function StorySettingsScreen() {
                 pronouns: data.pronouns || '',
                 eventInfluenceLevel: data.eventInfluenceLevel || 'moderate',
                 chosenStoryWorldCategory: data.chosenStoryWorldCategory || '',
+                numberOfWords: data.numberOfWords || 250,
                 timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
             });
         } catch (error) {
@@ -414,6 +416,31 @@ export default function StorySettingsScreen() {
                         Story will be delivered at {formatTimePoint(selectedTime)}
                     </Text>
                 </View>
+
+                <Text style={styles.label}>Story Length</Text>
+                <View style={styles.buttonGroup}>
+                    {[100, 250, 500, 1000].map((wordCount) => (
+                        <TouchableOpacity
+                            key={wordCount}
+                            style={[
+                                styles.wordCountButton,
+                                settings.numberOfWords === wordCount && styles.selectedButton
+                            ]}
+                            onPress={() => setSettings(prev => ({...prev, numberOfWords: wordCount}))}
+                        >
+                            <Text style={[
+                                styles.wordCountButtonText,
+                                settings.numberOfWords === wordCount && styles.selectedButtonText
+                            ]}>
+                                {wordCount}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <Text style={styles.description}>
+                    Choose how many words you want in your daily story.
+                    Shorter stories are more concise, longer ones have more detail.
+                </Text>
             </View>
 
             <TouchableOpacity style={styles.saveButton} onPress={saveSettings}>
@@ -690,5 +717,24 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         textAlign: 'center',
+    },
+    wordCountButton: {
+        flex: 1,
+        padding: 10,
+        borderRadius: 8,
+        backgroundColor: '#f0f0f0',
+        marginHorizontal: 5,
+        alignItems: 'center',
+    },
+    wordCountButtonText: {
+        color: '#666',
+        fontWeight: '500',
+        fontSize: 14,
+    },
+    selectedWordCountButton: {
+        backgroundColor: '#007AFF',
+    },
+    selectedWordCountButtonText: {
+        color: '#fff',
     },
 }); 

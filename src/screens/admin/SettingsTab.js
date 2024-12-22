@@ -20,8 +20,6 @@ export default function SettingsTab() {
         systemRole: '',
         model: 'gpt-3.5-turbo',
         temperature: 0.7,
-        minWords: 200,
-        maxWords: 400,
         active: false,
         minimal: "Events have a subtle impact on the story, appearing as minor background elements.",
         moderate: "Events play a supporting role in the story, influencing but not dominating the narrative.",
@@ -125,8 +123,6 @@ export default function SettingsTab() {
                 systemRole: '',
                 model: 'gpt-3.5-turbo',
                 temperature: 0.7,
-                minWords: 200,
-                maxWords: 400,
                 active: false,
                 minimal: "Events have a subtle impact on the story, appearing as minor background elements.",
                 moderate: "Events play a supporting role in the story, influencing but not dominating the narrative.",
@@ -382,22 +378,6 @@ export default function SettingsTab() {
                     </View>
                 </View>
 
-                <Text style={styles.inputLabel}>Set Story Length:</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Minimum words (200 for short, 500 for detailed)"
-                    value={newSetting.minWords.toString()}
-                    onChangeText={(text) => setNewSetting(prev => ({...prev, minWords: parseInt(text) || 0}))}
-                    keyboardType="numeric"
-                />
-                <TextInput
-                    style={styles.input}
-                    placeholder="Maximum words (400 for short, 1000 for detailed)"
-                    value={newSetting.maxWords.toString()}
-                    onChangeText={(text) => setNewSetting(prev => ({...prev, maxWords: parseInt(text) || 0}))}
-                    keyboardType="numeric"
-                />
-
                 <View style={styles.section}>
                     <Text style={styles.subTitle}>Event Influence Levels</Text>
                     
@@ -472,22 +452,6 @@ export default function SettingsTab() {
                                         <Text style={styles.sliderLabel}>Creative</Text>
                                     </View>
                                 </View>
-
-                                <Text style={styles.inputLabel}>Story Length:</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Minimum words"
-                                    value={String(editedSetting.minWords)}
-                                    onChangeText={(text) => setEditedSetting(prev => ({...prev, minWords: parseInt(text) || 0}))}
-                                    keyboardType="numeric"
-                                />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Maximum words"
-                                    value={String(editedSetting.maxWords)}
-                                    onChangeText={(text) => setEditedSetting(prev => ({...prev, maxWords: parseInt(text) || 0}))}
-                                    keyboardType="numeric"
-                                />
 
                                 <View style={styles.section}>
                                     <Text style={styles.subTitle}>Event Influence Levels</Text>
