@@ -19,29 +19,21 @@ export default function EventsScreen() {
         try {
             setLoading(true);
             const token = await AsyncStorage.getItem('token');
-            if (!token) {
-                await signOut();
-                navigation.replace('Login');
-                return;
-            }
-
-            const response = await fetch('http://192.168.1.33:8000/calendar/events', {
+            
+            // Direct call to sync/full which returns events
+            const response = await fetch('http://192.168.1.33:8000/calendar/sync/full', {
+                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
             });
-
-            if (response.status === 401) {
-                await signOut();
-                navigation.replace('Login');
-                return;
+            
+            if (response.ok) {
+                const data = await response.json();
+                setEvents(data.events);
             }
-
-            const data = await response.json();
-            setEvents(Array.isArray(data.events) ? data.events : []);
         } catch (error) {
-            console.error('Error fetching events:', error);
-            setEvents([]);
+            setError('Failed to load events');
         } finally {
             setLoading(false);
         }

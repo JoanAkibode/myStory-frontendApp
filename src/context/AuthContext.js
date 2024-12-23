@@ -49,11 +49,9 @@ export const AuthProvider = ({ children }) => {
     // Login function: stores user data and token in AsyncStorage
     // and updates the user state
     const login = async (userData, token) => {
-        console.log('Logging in with:', { userData, token });
         try {
             await AsyncStorage.setItem('user', JSON.stringify(userData));
             await AsyncStorage.setItem('token', token);
-            console.log('Auth data stored successfully');
             setUser(userData);
         } catch (error) {
             console.error('Error storing auth data:', error);
