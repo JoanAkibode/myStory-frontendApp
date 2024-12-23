@@ -1,4 +1,5 @@
 import React from 'react';
+import { Platform, Pressable } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -8,7 +9,9 @@ import DashboardScreen from './src/screens/DashboardScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import StorySettingsScreen from './src/screens/StorySettingsScreen';
 import StoryReadingScreen from './src/screens/StoryReadingScreen';
+import UserSettingsScreen from './src/screens/UserSettingsScreen';
 import * as Linking from 'expo-linking';
+import { Ionicons } from '@expo/vector-icons';
 
 const Stack = createNativeStackNavigator();
 
@@ -38,6 +41,24 @@ const linking = {
         }
     }
 };
+
+// Custom header button component
+function HeaderSettingsButton({ onPress }) {
+    return (
+        <Pressable 
+            onPress={onPress}
+            style={({ pressed }) => ({
+                marginRight: 15,
+                opacity: pressed ? 0.5 : 1
+            })}
+        >
+            {Platform.select({
+                web: <span style={{ fontSize: 24 }}>⚙️</span>,
+                default: <Ionicons name="settings-outline" size={24} color="black" />
+            })}
+        </Pressable>
+    );
+}
 
 export default function AppWrapper() {
     return (
@@ -84,13 +105,26 @@ function App() {
                     }}
                 />
                 <Stack.Screen 
+                    name="Settings" 
+                    component={UserSettingsScreen}
+                    options={{
+                        title: 'Settings',
+                        headerBackTitle: 'Back'
+                    }}
+                />
+                <Stack.Screen 
                     name="Dashboard" 
                     component={DashboardScreen}
-                    options={{
+                    options={({ navigation }) => ({
                         title: 'My Dashboard',
                         headerLeft: null,
-                        gestureEnabled: false
-                    }}
+                        gestureEnabled: false,
+                        headerRight: () => (
+                            <HeaderSettingsButton 
+                                onPress={() => navigation.navigate('Settings')}
+                            />
+                        )
+                    })}
                 />
                 <Stack.Screen 
                     name="Admin" 

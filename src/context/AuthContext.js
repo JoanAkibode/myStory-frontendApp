@@ -50,11 +50,13 @@ export const AuthProvider = ({ children }) => {
     // and updates the user state
     const login = async (userData, token) => {
         try {
+            console.log('Storing auth data:', { userData, token: token?.substring(0, 20) + '...' });
             await AsyncStorage.setItem('user', JSON.stringify(userData));
             await AsyncStorage.setItem('token', token);
             setUser(userData);
         } catch (error) {
             console.error('Error storing auth data:', error);
+            throw error;
         }
     };
 

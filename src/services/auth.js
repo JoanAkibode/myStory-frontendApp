@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { authConfig } from '../config/auth';
 import * as Linking from 'expo-linking';
 
 // Use localhost for web, IP for mobile
@@ -39,9 +41,17 @@ export const googleAuth = {
                 return { success: true };
             }
             
-            console.log('Opening URL:', url);
-            await Linking.openURL(url);
-            return { success: true };
+            // For mobile, use WebBrowser
+            const result = await WebBrowser.openAuthSessionAsync(
+                url,
+                authConfig.redirectUri
+            );
+
+            if (result.type === 'success') {
+                return { success: true };
+            }
+
+            return { success: false, error: 'Auth cancelled' };
 
         } catch (error) {
             console.error('Login error details:', {

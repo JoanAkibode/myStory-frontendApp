@@ -10,18 +10,26 @@ export default function LoginScreen({ navigation }) {
     useEffect(() => {
         const handleDeepLink = async (event) => {
             try {
+                console.log('Deep link received:', event.url);
                 const { queryParams } = Linking.parse(event.url);
-                if (queryParams.data) {
-                    let authData;
-                    if (typeof queryParams.data === 'string') {
-                        authData = JSON.parse(decodeURIComponent(queryParams.data));
-                    } else {
-                        authData = queryParams.data;
-                    }
-                    
-                    if (authData.token && authData.user) {
-                        await login(authData.user, authData.token);
+                
+                if (queryParams.token) {
+                    console.log('Token found in params');
+                    const response = await fetch('http://192.168.1.33:8000/auth/exchange-token', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ token: queryParams.token })
+                    });
+
+                    if (response.ok) {
+                        const { token, user } = await response.json();
+                        console.log('Login successful:', { user });
+                        await login(user, token);
                         navigation.replace('Dashboard');
+                    } else {
+                        console.error('Token exchange failed:', await response.text());
                     }
                 }
             } catch (error) {
@@ -29,7 +37,9 @@ export default function LoginScreen({ navigation }) {
             }
         };
 
+        // Check initial URL
         Linking.getInitialURL().then(url => {
+            console.log('Initial URL:', url);
             if (url) {
                 handleDeepLink({ url });
             }

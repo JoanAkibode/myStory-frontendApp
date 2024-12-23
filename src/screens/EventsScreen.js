@@ -19,21 +19,35 @@ export default function EventsScreen() {
         try {
             setLoading(true);
             const token = await AsyncStorage.getItem('token');
+            console.log('Token for calendar sync:', token?.substring(0, 20) + '...');
             
-            // Direct call to sync/full which returns events
+            if (!token) {
+                throw new Error('No auth token found');
+            }
+
             const response = await fetch('http://192.168.1.33:8000/calendar/sync/full', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
             });
             
-            if (response.ok) {
-                const data = await response.json();
-                setEvents(data.events);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Calendar sync failed:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorText
+                });
+                throw new Error(`Sync failed: ${response.status}`);
             }
+            
+            const data = await response.json();
+            setEvents(data.events);
         } catch (error) {
-            setError('Failed to load events');
+            console.error('Error fetching events:', error);
+            setError(error.message);
         } finally {
             setLoading(false);
         }
