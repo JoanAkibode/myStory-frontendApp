@@ -5,10 +5,11 @@ import SettingsTab from './admin/SettingsTab';
 import WorldsTab from './admin/WorldsTab';
 import PlotsTab from './admin/PlotsTab';
 import PlaygroundTab from './admin/PlaygroundTab';
+import MonitoringTab from './admin/MonitoringTab';
 
 export default function AdminScreen() {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState('playground');
+    const [activeTab, setActiveTab] = useState('monitoring');
 
     if (Platform.OS !== 'web' || user.email !== 'akibodejoan@gmail.com') {
         return <View style={styles.container}><Text>Access Denied</Text></View>;
@@ -16,6 +17,8 @@ export default function AdminScreen() {
 
     const renderTab = () => {
         switch(activeTab) {
+            case 'monitoring':
+                return <MonitoringTab />;
             case 'settings':
                 return <SettingsTab />;
             case 'worlds':
@@ -32,6 +35,12 @@ export default function AdminScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.tabBar}>
+                <TouchableOpacity 
+                    style={[styles.tab, activeTab === 'monitoring' && styles.activeTab]}
+                    onPress={() => setActiveTab('monitoring')}
+                >
+                    <Text style={styles.tabText}>Monitoring</Text>
+                </TouchableOpacity>
                 <TouchableOpacity 
                     style={[styles.tab, activeTab === 'settings' && styles.activeTab]}
                     onPress={() => setActiveTab('settings')}

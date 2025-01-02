@@ -39,11 +39,19 @@ export default function StorySettingsScreen() {
     const [isDragging, setIsDragging] = useState(false);
     const [showTimezoneModal, setShowTimezoneModal] = useState(false);
     const [resetting, setResetting] = useState(false);
+    const [deliveryDay, setDeliveryDay] = useState('same'); // 'same' or 'following'
+    const [deliveryHour, setDeliveryHour] = useState(12);
+    const [deliveryMinute, setDeliveryMinute] = useState(0);
+    const [showDayPicker, setShowDayPicker] = useState(false);
+    const [showHourPicker, setShowHourPicker] = useState(false);
+    const [showMinutePicker, setShowMinutePicker] = useState(false);
+    const [showToast, setShowToast] = useState(false);
+    const [toastMessage, setToastMessage] = useState('');
 
     const HourMarkers = () => {
         // Generate markers for every hour (24 hours)
         return Array.from({ length: 25 }, (_, i) => {
-            const left = `${(i / 24) * 100}%`;
+            const left = `${(i / 24) * 100}%`
             return (
                 <View 
                     key={i} 
@@ -114,13 +122,20 @@ export default function StorySettingsScreen() {
         setShowTimezoneModal(false);
     };
 
+    const showToastMessage = (message) => {
+        setToastMessage(message);
+        setShowToast(true);
+        setTimeout(() => {
+            setShowToast(false);
+        }, 2000); // Hide after 2 seconds
+    };
+
     useEffect(() => {
         Promise.all([
             loadSettings(),
             fetchCategories()
         ]).finally(() => setLoading(false));
     }, []);
-
     const loadSettings = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
@@ -130,14 +145,56 @@ export default function StorySettingsScreen() {
                 }
             });
             const data = await response.json();
-            setSettings({
-                preferredName: data.preferredName || '',
-                pronouns: data.pronouns || '',
-                eventInfluenceLevel: data.eventInfluenceLevel || 'moderate',
-                chosenStoryWorldCategory: data.chosenStoryWorldCategory || '',
-                numberOfWords: data.numberOfWords || 250,
-                timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+            console.log('Received user data:', data);
+
+            setSettings(prevSettings => {
+                const newSettings = {
+                    ...prevSettings,
+                    preferredName: data.preferredName || '',
+                    pronouns: data.pronouns || '',
+                    eventInfluenceLevel: data.eventInfluenceLevel || 'moderate',
+                    chosenStoryWorldCategory: data.chosenStoryWorldCategory || '',
+                    numberOfWords: data.numberOfWords || 250,
+                    timezone: data.storyDeliveryTime?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
+                };
+                console.log('New settings state:', newSettings);
+                return newSettings;
             });
+
+            console.log('Setting numberOfWords to:', data.numberOfWords);
+            
+            // Handle delivery time settings
+            if (data.storyDeliveryTime) {
+                const { hour, minute, isFollowingDay } = data.storyDeliveryTime;
+                console.log('Setting delivery time:', { hour, minute, isFollowingDay });
+
+                // Set the day (same or following)
+                setDeliveryDay(isFollowingDay ? 'following' : 'same');
+                
+                // Set the minute
+                setDeliveryMinute(minute);
+
+                // Set the hour based on the day and 12-hour format
+                if (isFollowingDay) {
+                    // For following day (AM hours)
+                    setDeliveryHour(hour);
+                } else {
+                    // For same day (PM hours)
+                    setDeliveryHour(hour);
+                }
+
+                console.log('Delivery time set to:', {
+                    day: isFollowingDay ? 'following' : 'same',
+                    hour: hour,
+                    minute: minute,
+                    displayHour: `${hour % 12 || 12}${hour >= 12 ? 'PM' : 'AM'}`
+                });
+            } else {
+                console.log('No delivery time found, using defaults');
+                setDeliveryDay('same');
+                setDeliveryHour(12); // Default to noon
+                setDeliveryMinute(0);
+            }
         } catch (error) {
             console.error('Error loading settings:', error);
             Alert.alert('Error', 'Failed to load settings');
@@ -176,19 +233,23 @@ export default function StorySettingsScreen() {
                 },
                 body: JSON.stringify({
                     ...settings,
-                    deliveryTime: new Date(2023, 0, 1, Math.floor(selectedTime / 60), selectedTime % 60).toISOString(),
-                    timezone: settings.timezone
+                    storyDeliveryTime: {
+                        hour: deliveryHour,
+                        minute: deliveryMinute,
+                        timezone: settings.timezone,
+                        isFollowingDay: deliveryDay === 'following'
+                    }
                 })
             });
 
             if (response.ok) {
-                Alert.alert('Success', 'Settings saved successfully');
+                showToastMessage('Settings saved successfully!');
             } else {
                 throw new Error('Failed to save settings');
             }
         } catch (error) {
             console.error('Error saving settings:', error);
-            Alert.alert('Error', 'Failed to save settings');
+            showToastMessage('Failed to save settings');
         }
     };
 
@@ -230,6 +291,56 @@ export default function StorySettingsScreen() {
             setResetting(false);
         }
     };
+
+    // Generate hours options based on selected day
+    const getHourOptions = () => {
+        if (deliveryDay === 'same') {
+            // For same day, show PM hours (12-23)
+            return Array.from({ length: 12 }, (_, i) => i + 12);
+        } else {
+            // For following day, show AM hours (0-11)
+            return Array.from({ length: 12 }, (_, i) => i);
+        }
+    };
+
+    // Generate minutes options (0, 5, 10, ..., 55)
+    const getMinuteOptions = () => {
+        return Array.from({ length: 12 }, (_, i) => i * 5);
+    };
+
+    const PickerModal = ({ visible, onClose, title, options, onSelect }) => (
+        <Modal
+            visible={visible}
+            transparent={true}
+            animationType="slide"
+        >
+            <View style={styles.modalOverlay}>
+                <View style={styles.modalContent}>
+                    <Text style={styles.modalTitle}>{title}</Text>
+                    <ScrollView>
+                        {options.map((option) => (
+                            <TouchableOpacity
+                                key={option.value}
+                                style={styles.pickerOption}
+                                onPress={() => {
+                                    onSelect(option.value);
+                                    onClose();
+                                }}
+                            >
+                                <Text style={styles.pickerOptionText}>{option.label}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                    <TouchableOpacity 
+                        style={styles.modalCloseButton}
+                        onPress={onClose}
+                    >
+                        <Text style={styles.modalCloseButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
+    );
 
     if (loading) {
         return (
@@ -360,60 +471,79 @@ export default function StorySettingsScreen() {
                     </View>
                 </Modal>
 
-                <Text style={styles.label}>Story Delivery Time</Text>
-                <Text style={styles.description}>
-                    Choose when you want to receive your daily story.
-                    Select a time between noon today and noon tomorrow.
-                </Text>
+                <View style={styles.deliveryTimeContainer}>
+                    <Text style={styles.sectionTitle}>Story Delivery Time</Text>
+                    
+                    <View style={styles.dropdownRow}>
+                        <View style={styles.dropdownContainer}>
+                            <Text style={styles.dropdownLabel}>Delivery Day</Text>
+                            <TouchableOpacity 
+                                style={styles.dropdown}
+                                onPress={() => setShowDayPicker(true)}
+                                value={deliveryDay}
+                            >
+                                <Text>{deliveryDay === 'same' ? 'The day of events' : 'The following day'}</Text>
+                            </TouchableOpacity>
+                        </View>
 
-                <View style={styles.timelineContainer}>
-                    {/* Time markers */}
-                    <View style={styles.timeMarkers}>
-                        <View style={styles.timeMarkerColumn}>
-                            <Text style={styles.timeMarker}>Noon</Text>
+                        <View style={styles.dropdownContainer}>
+                            <Text style={styles.dropdownLabel}>Hour</Text>
+                            <TouchableOpacity 
+                                style={styles.dropdown}
+                                onPress={() => setShowHourPicker(true)}
+                                value={deliveryHour}
+                            >
+                                <Text>{`${deliveryHour % 12 || 12} ${deliveryHour >= 12 ? 'PM' : 'AM'}`}</Text>
+                            </TouchableOpacity>
                         </View>
-                        <View style={styles.timeMarkerColumn}>
-                            <Text style={styles.dayMarker}>Day of events</Text>
-                        </View>
-                        <View style={styles.timeMarkerColumn}>
-                            <Text style={styles.timeMarker}>Midnight</Text>
-                        </View>
-                        <View style={styles.timeMarkerColumn}>
-                            <Text style={styles.dayMarker}>Following day</Text>
-                        </View>
-                        <View style={styles.timeMarkerColumn}>
-                            <Text style={styles.timeMarker}>Noon</Text>
-                        </View>
-                    </View>
-                    
-                    {/* Timeline */}
-                    <View style={styles.timeline}>
-                        <View style={styles.timelineTrack} />
-                        <HourMarkers />
                         
-                        {/* Interactive timeline area */}
-                        <View 
-                            style={styles.timelineInteractive}
-                            onStartShouldSetResponder={() => true}
-                            onMoveShouldSetResponder={() => true}
-                            onResponderGrant={handleTimelineTouch}
-                            onResponderMove={handleTimelineTouch}
-                        >
-                            {/* Cursor */}
-                            <View 
-                                style={[
-                                    styles.timeCursor,
-                                    {
-                                        left: `${((selectedTime - 720) / 1440 * 100)}%`
-                                    }
-                                ]} 
-                            />
+                        <View style={styles.dropdownContainer}>
+                            <Text style={styles.dropdownLabel}>Minute</Text>
+                            <TouchableOpacity 
+                                style={styles.dropdown}
+                                onPress={() => setShowMinutePicker(true)}
+                                value={deliveryMinute}
+                            >
+                                <Text>{deliveryMinute.toString().padStart(2, '0')}</Text>
+                            </TouchableOpacity>
                         </View>
+
+                        <PickerModal
+                            visible={showDayPicker}
+                            onClose={() => setShowDayPicker(false)}
+                            title="Select Delivery Day"
+                            options={[
+                                { label: 'The day of events', value: 'same' },
+                                { label: 'The following day', value: 'following' }
+                            ]}
+                            onSelect={setDeliveryDay}
+                        />
+
+                        <PickerModal
+                            visible={showHourPicker}
+                            onClose={() => setShowHourPicker(false)}
+                            title="Select Hour"
+                            options={getHourOptions().map(hour => ({
+                                label: `${hour % 12 || 12} ${hour >= 12 ? 'PM' : 'AM'}`,
+                                value: hour
+                            }))}
+                            onSelect={setDeliveryHour}
+                        />
+
+                        <PickerModal
+                            visible={showMinutePicker}
+                            onClose={() => setShowMinutePicker(false)}
+                            title="Select Minute"
+                            options={getMinuteOptions().map(minute => ({
+                                label: minute.toString().padStart(2, '0'),
+                                value: minute
+                            }))}
+                            onSelect={setDeliveryMinute}
+                        />
                     </View>
-                    
-                    {/* Selected time display */}
-                    <Text style={styles.selectedTimeText}>
-                        Story will be delivered at {formatTimePoint(selectedTime)}
+
+                    <Text style={styles.deliveryTimeText}>
+                        Story will be delivered at {deliveryHour % 12 || 12}:{deliveryMinute.toString().padStart(2, '0')} {deliveryHour >= 12 ? 'PM' : 'AM'} {deliveryDay === 'following' ? 'the following day' : 'the day of the events'}
                     </Text>
                 </View>
 
@@ -446,6 +576,14 @@ export default function StorySettingsScreen() {
             <TouchableOpacity style={styles.saveButton} onPress={saveSettings}>
                 <Text style={styles.saveButtonText}>Save Settings</Text>
             </TouchableOpacity>
+
+            {showToast && (
+                <View style={styles.toastContainer}>
+                    <View style={styles.toast}>
+                        <Text style={styles.toastText}>{toastMessage}</Text>
+                    </View>
+                </View>
+            )}
         </ScrollView>
     );
 }
@@ -492,7 +630,7 @@ const styles = StyleSheet.create({
     buttonGroup: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 20,
+        marginVertical: 10,
     },
     levelButton: {
         flex: 1,
@@ -668,6 +806,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderRadius: 10,
         padding: 20,
+        width: '80%',
         maxHeight: '80%',
     },
     modalTitle: {
@@ -736,5 +875,74 @@ const styles = StyleSheet.create({
     },
     selectedWordCountButtonText: {
         color: '#fff',
+    },
+    deliveryTimeContainer: {
+        padding: 15,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        marginBottom: 20,
+    },
+    dropdownRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginVertical: 10,
+    },
+    dropdownContainer: {
+        flex: 1,
+        marginHorizontal: 5,
+    },
+    dropdownLabel: {
+        fontSize: 12,
+        color: '#666',
+        marginBottom: 5,
+    },
+    dropdown: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        padding: 10,
+        backgroundColor: '#f8f8f8',
+    },
+    deliveryTimeText: {
+        textAlign: 'center',
+        marginTop: 15,
+        color: '#007AFF',
+        fontSize: 16,
+    },
+    sectionTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 10,
+    },
+    pickerOption: {
+        padding: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    pickerOptionText: {
+        fontSize: 16,
+        color: '#333',
+        textAlign: 'center',
+    },
+    toastContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'center',
+        pointerEvents: 'none',
+    },
+    toast: {
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        padding: 16,
+        borderRadius: 8,
+        maxWidth: '80%',
+    },
+    toastText: {
+        color: '#fff',
+        fontSize: 16,
+        textAlign: 'center',
     },
 }); 

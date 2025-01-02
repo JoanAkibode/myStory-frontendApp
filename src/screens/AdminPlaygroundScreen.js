@@ -1,31 +1,31 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import styles from '../styles/styles';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import PlotsTab from './admin/PlotsTab';
+import WorldsTab from './admin/WorldsTab';
+import MonitoringTab from './admin/MonitoringTab';
+
+const Tab = createMaterialTopTabNavigator();
 
 const AdminPlaygroundScreen = () => {
-    const [generating, setGenerating] = useState(false);
-
-    useEffect(() => {
-        // Implement story generation logic here
-    }, []);
-
     return (
-        <ScrollView style={styles.container}>
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Story Generation</Text>
-                <TouchableOpacity 
-                    style={styles.button}
-                    onPress={generateTodayStory}
-                    disabled={generating}
-                >
-                    <Text style={styles.buttonText}>
-                        {generating ? 'Generating...' : "Write Today's Story"}
-                    </Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Other admin tools */}
-        </ScrollView>
+        <Tab.Navigator>
+            <Tab.Screen 
+                name="Monitoring" 
+                component={MonitoringTab}
+                options={{ tabBarLabel: 'Stats' }}
+            />
+            <Tab.Screen 
+                name="Plots" 
+                component={PlotsTab}
+                options={{ tabBarLabel: 'Plots' }}
+            />
+            <Tab.Screen 
+                name="Worlds" 
+                component={WorldsTab}
+                options={{ tabBarLabel: 'Worlds' }}
+            />
+        </Tab.Navigator>
     );
 };
 
