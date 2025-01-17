@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
 
     const exchangeToken = async (googleToken) => {
         try {
-            const response = await fetch('http://192.168.1.33:8000/auth/google-token', {
+            const response = await fetch('${getApiUrl()}/auth/google-token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
         try {
             const savedToken = await AsyncStorage.getItem('token');
             if (savedToken) {
-                const response = await fetch('http://192.168.1.33:8000/auth/google/verify', {
+                const response = await fetch('${getApiUrl()}/auth/google/verify', {
                     headers: {
                         'Authorization': `Bearer ${savedToken}`
                     }

@@ -2,7 +2,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export const useApi = () => {
     const { token, logout } = useAuth();
-    const baseUrl = 'http://192.168.1.33:8000';
+    const baseUrl = '${getApiUrl()}';
 
     const fetchWithAuth = async (endpoint, options = {}) => {
         if (!token) {

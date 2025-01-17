@@ -12,6 +12,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { getApiUrl } from '../utils/config';
 
 export default function StoriesScreen({ navigation }) {
     const { signOut } = useAuth();
@@ -29,7 +30,7 @@ export default function StoriesScreen({ navigation }) {
         const checkAfterDelivery = async () => {
             try {
                 const token = await AsyncStorage.getItem('token');
-                const response = await fetch('http://192.168.1.33:8000/user/profile', {
+                const response = await fetch(`${getApiUrl()}/user/profile`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const user = await response.json();
@@ -67,7 +68,7 @@ export default function StoriesScreen({ navigation }) {
                 return;
             }
 
-            const response = await fetch('http://192.168.1.33:8000/stories/all', {
+            const response = await fetch(`${getApiUrl()}/stories/all`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -112,7 +113,7 @@ export default function StoriesScreen({ navigation }) {
     const checkForTodayStory = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/stories/today', {
+            const response = await fetch(`${getApiUrl()}/stories/today`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

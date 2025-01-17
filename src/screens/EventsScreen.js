@@ -2,30 +2,55 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, RefreshControl, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { getApiUrl } from '../utils/config';
 
 export default function EventsScreen() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [activeTab, setActiveTab] = useState('current'); // 'current' or 'past'
-    const [lastEventCheck, setLastEventCheck] = useState(null);
+    const [activeTab, setActiveTab] = useState('current');
     const [refreshing, setRefreshing] = useState(false);
+    const [syncInProgress, setSyncInProgress] = useState(false);
 
     useEffect(() => {
-        fetchEvents();
+        loadEvents();
     }, []);
 
-    const fetchEvents = async () => {
+    const loadEvents = async () => {
         try {
-            setLoading(true);
+            // 1. First try to load from cache if it's valid
+            const cacheValid = await isCacheValid();
+            const cachedEvents = await AsyncStorage.getItem('calendar_events');
+            
+            if (cacheValid && cachedEvents) {
+                const parsedEvents = JSON.parse(cachedEvents);
+                console.log('Loaded from cache:', parsedEvents.map(event => event.summary));
+                setEvents(parsedEvents);
+                setLoading(false);
+            } else {
+                setLoading(true);
+            }
+
+            // 2. Then fetch fresh data in background
+            await fetchFreshEvents();
+        } catch (error) {
+            console.error('Error loading events:', error);
+            setError(error.message);
+            setLoading(false);
+        }
+    };
+
+    const fetchFreshEvents = async () => {
+        try {
+            setSyncInProgress(true);
             const token = await AsyncStorage.getItem('token');
-            console.log('Token for calendar sync:', token?.substring(0, 20) + '...');
             
             if (!token) {
+                // Don't clear cache, just stop the sync
                 throw new Error('No auth token found');
             }
 
-            const response = await fetch('http://192.168.1.33:8000/calendar/sync/full', {
+            const response = await fetch(`${getApiUrl()}/calendar/sync/full`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -34,6 +59,11 @@ export default function EventsScreen() {
             });
             
             if (!response.ok) {
+                // Only clear cache on actual auth errors (401)
+                if (response.status === 401) {
+                    await AsyncStorage.removeItem('calendar_events');
+                    await AsyncStorage.removeItem('calendar_last_sync');
+                }
                 const errorText = await response.text();
                 console.error('Calendar sync failed:', {
                     status: response.status,
@@ -44,19 +74,24 @@ export default function EventsScreen() {
             }
             
             const data = await response.json();
+            
+            // Update cache and state with fresh data
+            await AsyncStorage.setItem('calendar_events', JSON.stringify(data.events));
+            await AsyncStorage.setItem('calendar_last_sync', new Date().toISOString());
             setEvents(data.events);
+            setLoading(false);
         } catch (error) {
-            console.error('Error fetching events:', error);
+            console.error('Error fetching fresh events:', error);
             setError(error.message);
         } finally {
-            setLoading(false);
+            setSyncInProgress(false);
         }
     };
 
     const toggleEventStatus = async (eventId) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/calendar/events/${eventId}/toggle`, {
+            const response = await fetch(`${getApiUrl()}/calendar/events/${eventId}/toggle`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -69,11 +104,14 @@ export default function EventsScreen() {
             }
 
             const { event } = await response.json();
-            setEvents(prevEvents => 
-                prevEvents.map(e => 
-                    e._id === eventId ? { ...e, active: event.active } : e
-                )
+            const updatedEvents = events.map(e => 
+                e._id === eventId ? { ...e, active: event.active } : e
             );
+            
+            // Update both state and cache
+            setEvents(updatedEvents);
+            await AsyncStorage.setItem('calendar_events', JSON.stringify(updatedEvents));
+            
         } catch (error) {
             console.error('Error toggling event:', error);
             Alert.alert('Error', 'Failed to update event status');
@@ -150,8 +188,23 @@ export default function EventsScreen() {
 
     const handleRefresh = async () => {
         setRefreshing(true);
-        await fetchEvents();
+        await fetchFreshEvents();
         setRefreshing(false);
+    };
+
+    const isCacheValid = async () => {
+        try {
+            const lastSync = await AsyncStorage.getItem('calendar_last_sync');
+            if (!lastSync) return false;
+
+            const lastSyncTime = new Date(lastSync).getTime();
+            const now = new Date().getTime();
+            const daysSinceLastSync = (now - lastSyncTime) / (1000 * 60 * 60 * 24);
+            
+            return daysSinceLastSync < 7; // Cache valid for 1 week
+        } catch (error) {
+            return false;
+        }
     };
 
     if (loading) {

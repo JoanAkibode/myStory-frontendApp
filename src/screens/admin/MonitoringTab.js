@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LineChart } from 'react-native-chart-kit';
+import { getApiUrl } from '../../utils/config';
 
 export default function MonitoringTab() {
     const [stats, setStats] = useState({
@@ -16,7 +17,7 @@ export default function MonitoringTab() {
     const fetchStats = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/api/admin/stats', {
+            const response = await fetch(`${getApiUrl()}/api/admin/stats`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

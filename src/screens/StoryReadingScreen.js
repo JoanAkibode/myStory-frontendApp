@@ -9,6 +9,7 @@ import {
     Alert
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../utils/config';
 
 const formatEventTime = (event) => {
     if (!event || !event.start) return 'Time not available';
@@ -38,7 +39,7 @@ export default function StoryReadingScreen({ route, navigation }) {
         const fetchStory = async () => {
             try {
                 const token = await AsyncStorage.getItem('token');
-                const response = await fetch(`http://192.168.1.33:8000/stories/${storyId}`, {
+                const response = await fetch(`${getApiUrl()}/stories/${storyId}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }

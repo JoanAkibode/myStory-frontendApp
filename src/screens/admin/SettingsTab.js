@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import JsonFormatModal from '../../components/JsonFormatModal';
+import { getApiUrl } from '../../utils/config';
 
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -37,7 +38,7 @@ export default function SettingsTab() {
     const fetchSettings = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-settings/', {
+            const response = await fetch(`${getApiUrl()}/story-settings/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -91,7 +92,7 @@ export default function SettingsTab() {
             }
 
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-settings', {
+            const response = await fetch(`${getApiUrl()}/story-settings`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -137,7 +138,7 @@ export default function SettingsTab() {
     const deleteSetting = async (id) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            await fetch(`http://192.168.1.33:8000/story-settings/${id}`, {
+            await fetch(`${getApiUrl()}/story-settings/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -152,7 +153,7 @@ export default function SettingsTab() {
     const toggleSettingActive = async (setting) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/story-settings/${setting._id}`, {
+            const response = await fetch(`${getApiUrl()}/story-settings/${setting._id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -193,7 +194,7 @@ export default function SettingsTab() {
             }
 
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-settings/bulk', {
+            const response = await fetch(`${getApiUrl()}/story-settings/bulk`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -275,7 +276,7 @@ export default function SettingsTab() {
     const saveEdits = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/story-settings/${editingSetting}`, {
+            const response = await fetch(`${getApiUrl()}/story-settings/${editingSetting}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,

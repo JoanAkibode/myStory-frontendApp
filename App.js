@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, Pressable } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -53,7 +53,7 @@ function HeaderSettingsButton({ onPress }) {
             })}
         >
             {Platform.select({
-                web: <span style={{ fontSize: 24 }}>⚙️</span>,
+                web: <Text style={{ fontSize: 24 }}>⚙️</Text>,
                 default: <Ionicons name="settings-outline" size={24} color="black" />
             })}
         </Pressable>
@@ -62,9 +62,11 @@ function HeaderSettingsButton({ onPress }) {
 
 export default function AppWrapper() {
     return (
-        <AuthProvider>
-            <App />
-        </AuthProvider>
+        <View style={{ flex: 1 }}>
+            <AuthProvider>
+                <App />
+            </AuthProvider>
+        </View>
     );
 }
 
@@ -73,85 +75,87 @@ function App() {
     console.log('App render - User state:', !!user, 'Loading:', loading);
 
     if (loading) {
-        return null;
+        return <View style={{ flex: 1 }} />;
     }
 
     return (
-        <NavigationContainer 
-            linking={linking}
-            onStateChange={(state) => {
-                console.log('Navigation state changed:', state);
-            }}
-        >
-            <Stack.Navigator 
-                initialRouteName={user ? "Dashboard" : "Login"}
-                screenListeners={{
-                    state: (e) => {
-                        console.log('Screen state changed:', e.data);
-                    }
+        <View style={{ flex: 1 }}>
+            <NavigationContainer 
+                linking={linking}
+                onStateChange={(state) => {
+                    console.log('Navigation state changed:', state);
                 }}
             >
-                <Stack.Screen 
-                    name="Login" 
-                    component={LoginScreen}
-                    options={{ headerShown: false }}
-                />
-                <Stack.Screen 
-                    name="Home" 
-                    component={HomeScreen}
-                    options={{ 
-                        headerLeft: null,
-                        gestureEnabled: false
+                <Stack.Navigator 
+                    initialRouteName={user ? "Dashboard" : "Login"}
+                    screenListeners={{
+                        state: (e) => {
+                            console.log('Screen state changed:', e.data);
+                        }
                     }}
-                />
-                <Stack.Screen 
-                    name="Settings" 
-                    component={UserSettingsScreen}
-                    options={{
-                        title: 'Settings',
-                        headerBackTitle: 'Back'
-                    }}
-                />
-                <Stack.Screen 
-                    name="Dashboard" 
-                    component={DashboardScreen}
-                    options={({ navigation }) => ({
-                        title: 'My Dashboard',
-                        headerLeft: null,
-                        gestureEnabled: false,
-                        headerRight: () => (
-                            <HeaderSettingsButton 
-                                onPress={() => navigation.navigate('Settings')}
-                            />
-                        )
-                    })}
-                />
-                <Stack.Screen 
-                    name="Admin" 
-                    component={AdminScreen}
-                    options={{
-                        title: 'Admin Panel',
-                        headerLeft: null,
-                        gestureEnabled: false
-                    }}
-                />
-                <Stack.Screen 
-                    name="StorySettings" 
-                    component={StorySettingsScreen}
-                    options={{
-                        title: 'Story Settings',
-                        headerBackTitle: 'Back'
-                    }}
-                />
-                <Stack.Screen 
-                    name="StoryReading" 
-                    component={StoryReadingScreen}
-                    options={{
-                        title: 'Story',
-                        headerBackTitle: 'Back'
-                    }}
-                />
-            </Stack.Navigator>
-        </NavigationContainer>
+                >
+                    <Stack.Screen 
+                        name="Login" 
+                        component={LoginScreen}
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen 
+                        name="Home" 
+                        component={HomeScreen}
+                        options={{ 
+                            headerLeft: null,
+                            gestureEnabled: false
+                        }}
+                    />
+                    <Stack.Screen 
+                        name="Settings" 
+                        component={UserSettingsScreen}
+                        options={{
+                            title: 'Settings',
+                            headerBackTitle: 'Back'
+                        }}
+                    />
+                    <Stack.Screen 
+                        name="Dashboard" 
+                        component={DashboardScreen}
+                        options={({ navigation }) => ({
+                            title: 'My Dashboard',
+                            headerLeft: null,
+                            gestureEnabled: false,
+                            headerRight: () => (
+                                <HeaderSettingsButton 
+                                    onPress={() => navigation.navigate('Settings')}
+                                />
+                            )
+                        })}
+                    />
+                    <Stack.Screen 
+                        name="Admin" 
+                        component={AdminScreen}
+                        options={{
+                            title: 'Admin Panel',
+                            headerLeft: null,
+                            gestureEnabled: false
+                        }}
+                    />
+                    <Stack.Screen 
+                        name="StorySettings" 
+                        component={StorySettingsScreen}
+                        options={{
+                            title: 'Story Settings',
+                            headerBackTitle: 'Back'
+                        }}
+                    />
+                    <Stack.Screen 
+                        name="StoryReading" 
+                        component={StoryReadingScreen}
+                        options={{
+                            title: 'Story',
+                            headerBackTitle: 'Back'
+                        }}
+                    />
+                </Stack.Navigator>
+            </NavigationContainer>
+        </View>
     );
 }

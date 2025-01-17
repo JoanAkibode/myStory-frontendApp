@@ -3,26 +3,27 @@ import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { authConfig } from '../config/auth';
 import * as Linking from 'expo-linking';
-
-// Use localhost for web, IP for mobile
-const BACKEND_URL = Platform.OS === 'web' 
-    ? 'http://localhost:8000' 
-    : 'http://192.168.1.33:8000';
+import { getApiUrl } from '../utils/config';
 
 export const googleAuth = {
     initiateLogin: async () => {
         try {
             console.log('Starting login process...');
-            console.log('Platform:', Platform.OS);
-            console.log('Backend URL:', BACKEND_URL);
-
-            // Add platform parameter to URL
-            const platform = Platform.OS === 'web' ? 'web' : 'mobile';
-            const response = await fetch(`${BACKEND_URL}/auth/google?platform=${platform}`, {
+            const apiUrl = getApiUrl();
+            
+            // Get the current origin
+            const origin = Platform.OS === 'web' 
+                ? window.location.origin 
+                : Linking.createURL('');
+                
+            console.log('Origin:', origin);
+            
+            const response = await fetch(`${apiUrl}/auth/google`, {
                 method: 'POST',
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
+                    'Origin': origin
                 },
             });
 
@@ -44,11 +45,39 @@ export const googleAuth = {
             // For mobile, use WebBrowser
             const result = await WebBrowser.openAuthSessionAsync(
                 url,
-                authConfig.redirectUri
+                Linking.createURL('auth/callback')
             );
 
+            console.log('WebBrowser result:', result);
+
             if (result.type === 'success') {
-                return { success: true };
+                // Handle the successful authentication
+                const { url: responseUrl } = result;
+                console.log('Auth response URL:', responseUrl);
+                const params = new URLSearchParams(responseUrl.split('?')[1]);
+                const callbackToken = params.get('token');
+                
+                if (callbackToken) {
+                    // Exchange the callback token
+                    const exchangeResponse = await fetch(`${apiUrl}/auth/exchange-token`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ token: callbackToken })
+                    });
+
+                    if (!exchangeResponse.ok) {
+                        throw new Error('Token exchange failed');
+                    }
+
+                    const { token, user } = await exchangeResponse.json();
+                    console.log('Token exchange successful:', { user });
+                    
+                    await AsyncStorage.setItem('userToken', token);
+                    await AsyncStorage.setItem('user', JSON.stringify(user));
+                    return { success: true, token, user };
+                }
             }
 
             return { success: false, error: 'Auth cancelled' };
@@ -58,7 +87,7 @@ export const googleAuth = {
                 message: error.message,
                 stack: error.stack,
                 platform: Platform.OS,
-                url: BACKEND_URL
+                url: getApiUrl()
             });
             return { success: false, error };
         }

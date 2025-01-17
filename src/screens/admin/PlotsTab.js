@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import JsonFormatModal from '../../components/JsonFormatModal';
+import { getApiUrl } from '../../utils/config';
 
 const TOTAL_MILESTONES = 7;
 
@@ -51,7 +52,7 @@ export default function PlotsTab() {
     const fetchPlots = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-plots', {
+            const response = await fetch(`${getApiUrl()}/story-plots`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -74,7 +75,7 @@ export default function PlotsTab() {
     const savePlot = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-plots', {
+            const response = await fetch(`${getApiUrl()}/story-plots`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -106,7 +107,7 @@ export default function PlotsTab() {
     const deletePlot = async (id) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            await fetch(`http://192.168.1.33:8000/story-plots/${id}`, {
+            await fetch(`${getApiUrl()}/story-plots/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -121,7 +122,7 @@ export default function PlotsTab() {
     const togglePlotActive = async (plot) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/story-plots/${plot._id}`, {
+            const response = await fetch(`${getApiUrl()}/story-plots/${plot._id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -150,7 +151,7 @@ export default function PlotsTab() {
             }
 
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-plots/bulk', {
+            const response = await fetch(`${getApiUrl()}/story-plots/bulk`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -185,7 +186,7 @@ export default function PlotsTab() {
     const saveEdits = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/story-plots/${editingPlot}`, {
+            const response = await fetch(`${getApiUrl()}/story-plots/${editingPlot}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,

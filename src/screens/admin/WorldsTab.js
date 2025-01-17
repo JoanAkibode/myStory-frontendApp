@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import JsonFormatModal from '../../components/JsonFormatModal';
-
+import { getApiUrl } from '../../utils/config';
 // Helper function to split text at semicolons or return single item array
 const textToArray = (text) => {
     if (!text) return [];
@@ -79,7 +79,7 @@ export default function WorldsTab() {
     const fetchWorlds = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-worlds', {
+            const response = await fetch(`${getApiUrl()}/story-worlds`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -107,7 +107,7 @@ export default function WorldsTab() {
             }
 
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-worlds', {
+            const response = await fetch(`${getApiUrl()}/story-worlds`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -147,7 +147,7 @@ export default function WorldsTab() {
     const deleteWorld = async (id) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            await fetch(`http://192.168.1.33:8000/story-worlds/${id}`, {
+            await fetch(`${getApiUrl()}/story-worlds/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -162,7 +162,7 @@ export default function WorldsTab() {
     const toggleWorldActive = async (world) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/story-worlds/${world._id}`, {
+            const response = await fetch(`${getApiUrl()}/story-worlds/${world._id}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -191,7 +191,7 @@ export default function WorldsTab() {
     const saveEdits = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/story-worlds/${editingWorld}`, {
+            const response = await fetch(`${getApiUrl()}/story-worlds/${editingWorld}`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -276,7 +276,7 @@ export default function WorldsTab() {
             }
 
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-worlds/bulk', {
+            const response = await fetch(`${getApiUrl()}/story-worlds/bulk`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

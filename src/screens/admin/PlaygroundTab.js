@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Picker, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../../utils/config';
 
 
 const groupByCategory = (items) => {
@@ -50,7 +51,7 @@ export default function PlaygroundTab() {
     const fetchTestUsers = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/api/admin/test-users/', {
+            const response = await fetch(`${getApiUrl()}/api/admin/test-users/`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -78,7 +79,7 @@ export default function PlaygroundTab() {
             const token = await AsyncStorage.getItem('token');
             
             // Fetch settings
-            const settingsResponse = await fetch('http://192.168.1.33:8000/story-settings', {
+            const settingsResponse = await fetch(`${getApiUrl()}/story-settings`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -88,7 +89,7 @@ export default function PlaygroundTab() {
             setSettings(settings);
 
             // Fetch plots
-            const plotsResponse = await fetch('http://192.168.1.33:8000/story-plots', {
+            const plotsResponse = await fetch(`${getApiUrl()}/story-plots`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -98,7 +99,7 @@ export default function PlaygroundTab() {
             setPlots(plots);
 
             // Fetch worlds
-            const worldsResponse = await fetch('http://192.168.1.33:8000/story-worlds', {
+            const worldsResponse = await fetch(`${getApiUrl()}/story-worlds`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -115,7 +116,7 @@ export default function PlaygroundTab() {
     const fetchUserEvents = async (userId) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/api/admin/test-users/${userId}/events`, {
+            const response = await fetch(`${getApiUrl()}/api/admin/test-users/${userId}/events`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -147,7 +148,7 @@ export default function PlaygroundTab() {
     const handleInfluenceLevelChange = async (itemValue) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/api/admin/test-users/${selectedUser._id}`, {
+            const response = await fetch(`${getApiUrl()}/api/admin/test-users/${selectedUser._id}`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -172,7 +173,7 @@ export default function PlaygroundTab() {
     const fetchStoryUpdates = async (threadId) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/api/stories/thread/${threadId}`, {
+            const response = await fetch(`${getApiUrl()}/api/stories/thread/${threadId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -199,7 +200,7 @@ export default function PlaygroundTab() {
             setGenerating(true);
             setGeneratedStories([]);
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/api/admin/generate-stories`, {
+            const response = await fetch(`${getApiUrl()}/api/admin/generate-stories`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -232,7 +233,7 @@ export default function PlaygroundTab() {
         try {
             setLoading(true);
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/api/admin/test-users/reset', {
+            const response = await fetch(`${getApiUrl()}/api/admin/test-users/reset`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -261,7 +262,7 @@ export default function PlaygroundTab() {
     const createWorld = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-worlds', {
+            const response = await fetch(`${getApiUrl()}/story-worlds`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -295,7 +296,7 @@ export default function PlaygroundTab() {
     const updateTestUser = async (updates) => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch(`http://192.168.1.33:8000/api/admin/test-users/${selectedUser._id}`, {
+            const response = await fetch(`${getApiUrl()}/api/admin/test-users/${selectedUser._id}`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -325,7 +326,7 @@ export default function PlaygroundTab() {
             setGeneratingAdmin(true);
             const token = await AsyncStorage.getItem('token');
             console.log('Got token, making API request...');
-            const response = await fetch(`http://192.168.1.33:8000/api/admin/generate-admin-daily-story`, {
+            const response = await fetch(`${getApiUrl()}/api/admin/generate-admin-daily-story`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

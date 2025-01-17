@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../utils/config';
 
 // Create a Context object. This will be used to share authentication state
 // across all components in our app without prop drilling
@@ -25,18 +26,11 @@ export const AuthProvider = ({ children }) => {
     // Check AsyncStorage for saved user data and token
     // AsyncStorage is React Native's persistent storage system
     const checkStoredAuth = async () => {
-        console.log('Starting stored auth check...');
         try {
             const storedUser = await AsyncStorage.getItem('user');
             const storedToken = await AsyncStorage.getItem('token');
             
-            console.log('Stored data found:', {
-                hasUser: !!storedUser,
-                hasToken: !!storedToken
-            });
-            
             if (storedUser && storedToken) {
-                console.log('Restoring session with user:', JSON.parse(storedUser));
                 setUser(JSON.parse(storedUser));
             }
         } catch (error) {
@@ -50,7 +44,6 @@ export const AuthProvider = ({ children }) => {
     // and updates the user state
     const login = async (userData, token) => {
         try {
-            console.log('Storing auth data:', { userData, token: token?.substring(0, 20) + '...' });
             await AsyncStorage.setItem('user', JSON.stringify(userData));
             await AsyncStorage.setItem('token', token);
             setUser(userData);
@@ -65,10 +58,9 @@ export const AuthProvider = ({ children }) => {
         try {
             const token = await AsyncStorage.getItem('token');
             
-            // Notify backend about logout
             if (token) {
                 try {
-                    await fetch('http://192.168.1.33:8000/auth/logout', {
+                    await fetch(`${getApiUrl()}/auth/logout`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${token}`
@@ -79,14 +71,8 @@ export const AuthProvider = ({ children }) => {
                 }
             }
 
-            // Clear local storage
             await AsyncStorage.clear();
-
-            // Clear auth state
             setUser(null);
-            setToken(null);
-            
-            console.log('Successfully logged out');
         } catch (error) {
             console.error('Error during logout:', error);
         }

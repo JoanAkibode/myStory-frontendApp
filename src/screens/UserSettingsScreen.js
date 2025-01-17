@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../utils/config';
 
 export default function UserSettingsScreen({ navigation }) {
     const { user, signOut } = useAuth();
@@ -38,7 +39,7 @@ export default function UserSettingsScreen({ navigation }) {
 
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/user/profile', {
+            const response = await fetch(`${getApiUrl()}/user/profile`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`

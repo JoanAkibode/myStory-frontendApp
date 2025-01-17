@@ -11,6 +11,7 @@ import {
     Modal
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getApiUrl } from '../utils/config';
 
 // Common timezones list
 const TIMEZONES = [
@@ -139,7 +140,7 @@ export default function StorySettingsScreen() {
     const loadSettings = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/user/profile', {
+            const response = await fetch(`${getApiUrl()}/user/profile`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -204,7 +205,7 @@ export default function StorySettingsScreen() {
     const fetchCategories = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/story-worlds/categories', {
+            const response = await fetch(`${getApiUrl()}/story-worlds/categories`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -225,7 +226,7 @@ export default function StorySettingsScreen() {
     const saveSettings = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
-            const response = await fetch('http://192.168.1.33:8000/user/profile', {
+            const response = await fetch(`${getApiUrl()}/user/profile`, {
                 method: 'PATCH',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -264,7 +265,7 @@ export default function StorySettingsScreen() {
                 return;
             }
 
-            const response = await fetch('http://192.168.1.33:8000/stories/reset', {
+            const response = await fetch(`${getApiUrl()}/stories/reset`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
