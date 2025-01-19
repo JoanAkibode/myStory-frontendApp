@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Picker, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Picker, StyleSheet, Button, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiUrl } from '../../utils/config';
 
@@ -42,6 +42,7 @@ export default function PlaygroundTab() {
         worldRules: [],
         keyElements: []
     });
+    const [sendingNotification, setSendingNotification] = useState(false);
 
     useEffect(() => {
         fetchTestUsers();
@@ -352,6 +353,44 @@ export default function PlaygroundTab() {
         }
     };
 
+    const sendTestNotification = async () => {
+        try {
+            setSendingNotification(true);
+            const token = await AsyncStorage.getItem('token');
+            
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            console.log('Sending test notification with token:', token ? 'exists' : 'missing');
+            
+            const response = await fetch(`${getApiUrl()}/api/admin/test-notification`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    title: 'Test Notification',
+                    body: 'This is a test notification from MyStory!'
+                })
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Test notification error:', response.status, errorText);
+                throw new Error(`Failed to send test notification: ${response.status} ${errorText}`);
+            }
+
+            Alert.alert('Success', 'Test notification sent successfully!');
+        } catch (error) {
+            console.error('Error sending test notification:', error);
+            Alert.alert('Error', error.message);
+        } finally {
+            setSendingNotification(false);
+        }
+    };
+
     if (loading) {
         return (
             <View style={styles.container}>
@@ -380,7 +419,6 @@ export default function PlaygroundTab() {
                     </TouchableOpacity>
                 </View>
 
-                <Text style={styles.sectionTitle}>Story Generation</Text>
                 <View style={styles.section}>
                     <View style={styles.headerSection}>
                         <Text style={styles.sectionTitle}>Story Generation</Text>
@@ -535,8 +573,6 @@ export default function PlaygroundTab() {
                             </View>
                         </View>
 
-
-
                         {/* Generate Stories Button */}
                         <TouchableOpacity
                             style={[
@@ -584,6 +620,21 @@ export default function PlaygroundTab() {
                     )}
 
                 </View>
+            </View>
+
+            <View style={styles.buttonContainer}>
+                <TouchableOpacity
+                    style={[
+                        styles.adminButton,
+                        sendingNotification && styles.generateButtonDisabled
+                    ]}
+                    onPress={sendTestNotification}
+                    disabled={sendingNotification}
+                >
+                    <Text style={styles.adminButtonText}>
+                        {sendingNotification ? "Sending..." : "Send Test Notification"}
+                    </Text>
+                </TouchableOpacity>
             </View>
         </ScrollView>
     );
@@ -802,5 +853,8 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    buttonContainer: {
+        marginVertical: 10,
     },
 }); 

@@ -3,8 +3,10 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, RefreshCon
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiUrl } from '../utils/config';
+import { useAuth } from '../context/AuthContext';
 
 export default function EventsScreen() {
+    const { user, isReady } = useAuth();
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -13,8 +15,22 @@ export default function EventsScreen() {
     const [syncInProgress, setSyncInProgress] = useState(false);
 
     useEffect(() => {
+        console.log('EventsScreen useEffect - Auth state:', { isReady, hasUser: !!user });
+        
+        if (!isReady) {
+            console.log('Auth not ready yet, waiting...');
+            return;
+        }
+
+        if (!user) {
+            console.log('No user found, stopping events load');
+            setError('Please log in to view events');
+            setLoading(false);
+            return;
+        }
+
         loadEvents();
-    }, []);
+    }, [isReady, user]);
 
     const loadEvents = async () => {
         try {

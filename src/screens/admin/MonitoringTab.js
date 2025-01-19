@@ -1,8 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Dimensions, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LineChart } from 'react-native-chart-kit';
 import { getApiUrl } from '../../utils/config';
+
+// Update chart config with web-specific props
+const chartConfig = {
+    backgroundColor: '#ffffff',
+    backgroundGradientFrom: '#ffffff',
+    backgroundGradientTo: '#ffffff',
+    color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+    style: {
+        borderRadius: 16
+    },
+    propsForDots: {
+        r: '6',
+        strokeWidth: '2',
+        stroke: '#ffa726',
+        // Add empty event handlers for web
+        onClick: () => {},
+        onMouseEnter: () => {},
+        onMouseLeave: () => {},
+        // Disable responder events on web
+        pointerEvents: Platform.OS === 'web' ? 'none' : 'auto'
+    },
+    propsForBackgroundLines: {
+        strokeDasharray: ''
+    },
+    propsForLabels: {
+        fontSize: 12,
+        // Disable responder events on web
+        pointerEvents: Platform.OS === 'web' ? 'none' : 'auto'
+    },
+    // Add web-specific touch handling
+    useTouchEvents: false,
+    formatTopLabelValue: value => `${value}`,
+    formatYLabel: value => `${value}`,
+    formatXLabel: value => value
+};
 
 export default function MonitoringTab() {
     const [stats, setStats] = useState({
@@ -17,6 +52,12 @@ export default function MonitoringTab() {
     const fetchStats = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
+            console.log('Token for admin stats:', token ? 'exists' : 'missing');
+            
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
             const response = await fetch(`${getApiUrl()}/api/admin/stats`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -24,7 +65,9 @@ export default function MonitoringTab() {
             });
             
             if (!response.ok) {
-                throw new Error('Failed to fetch stats');
+                const errorText = await response.text();
+                console.error('Stats response error:', response.status, errorText);
+                throw new Error(`Failed to fetch stats: ${response.status} ${errorText}`);
             }
             
             const data = await response.json();
@@ -110,35 +153,31 @@ export default function MonitoringTab() {
                 <Text style={styles.cardTitle}>Generation History</Text>
                 {stats.dailyStats && stats.dailyStats.length > 0 ? (
                     <>
-                        <LineChart
-                            data={prepareChartData()}
-                            width={Dimensions.get('window').width - 40}
-                            height={220}
-                            chartConfig={{
-                                backgroundColor: '#fff',
-                                backgroundGradientFrom: '#fff',
-                                backgroundGradientTo: '#fff',
-                                decimalPlaces: 0,
-                                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-                                style: {
-                                    borderRadius: 16
-                                },
-                                propsForDots: {
-                                    r: '6',
-                                    strokeWidth: '2',
-                                }
-                            }}
-                            bezier
-                            style={{
-                                marginVertical: 8,
-                                borderRadius: 16
-                            }}
-                            fromZero
-                            withInnerLines={false}
-                            withOuterLines={true}
-                            withShadow={false}
-                        />
+                        <View style={styles.chartContainer}>
+                            <LineChart
+                                data={prepareChartData()}
+                                width={Dimensions.get('window').width - 40}
+                                height={220}
+                                chartConfig={chartConfig}
+                                bezier
+                                style={{
+                                    marginVertical: 8,
+                                    borderRadius: 16,
+                                    // Disable responder events at the root level for web
+                                    ...(Platform.OS === 'web' && { pointerEvents: 'none' })
+                                }}
+                                fromZero
+                                withInnerLines={true}
+                                withOuterLines={true}
+                                withVerticalLines={true}
+                                withHorizontalLines={true}
+                                withDots={true}
+                                withShadow={false}
+                                // Remove web-specific event handlers that aren't needed
+                                enableResponsive={true}
+                                segments={5}
+                            />
+                        </View>
                         <View style={styles.legend}>
                             <View style={styles.legendItem}>
                                 <View style={[styles.legendDot, { backgroundColor: '#007AFF' }]} />
@@ -233,5 +272,9 @@ const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5
+    },
+    chartContainer: {
+        marginVertical: 8,
+        borderRadius: 16
     }
 }); 

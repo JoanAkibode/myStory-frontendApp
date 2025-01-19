@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -12,6 +12,7 @@ import StoryReadingScreen from './src/screens/StoryReadingScreen';
 import UserSettingsScreen from './src/screens/UserSettingsScreen';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
+import { getFCMToken, updateFCMToken, onMessageReceived } from './src/config/firebase';
 
 const Stack = createNativeStackNavigator();
 
@@ -60,22 +61,40 @@ function HeaderSettingsButton({ onPress }) {
     );
 }
 
-export default function AppWrapper() {
-    return (
-        <View style={{ flex: 1 }}>
-            <AuthProvider>
-                <App />
-            </AuthProvider>
-        </View>
-    );
-}
+function AppContent() {
+    const { user, isReady } = useAuth();
 
-function App() {
-    const { user, loading } = useAuth();
-    console.log('App render - User state:', !!user, 'Loading:', loading);
+    useEffect(() => {
+        const setupNotifications = async () => {
+            try {
+                // Get FCM token
+                const token = await getFCMToken();
+                if (token && user) {
+                    // Update token on backend
+                    await updateFCMToken(token);
+                }
 
-    if (loading) {
-        return <View style={{ flex: 1 }} />;
+                // Set up notification listener
+                const subscription = onMessageReceived(notification => {
+                    console.log('Received notification:', notification);
+                    // Handle the notification as needed
+                });
+
+                return () => {
+                    subscription.remove();
+                };
+            } catch (error) {
+                console.error('Error setting up notifications:', error);
+            }
+        };
+
+        if (isReady && user) {
+            setupNotifications();
+        }
+    }, [isReady, user]);
+
+    if (!isReady) {
+        return null;
     }
 
     return (
@@ -157,5 +176,13 @@ function App() {
                 </Stack.Navigator>
             </NavigationContainer>
         </View>
+    );
+}
+
+export default function App() {
+    return (
+        <AuthProvider>
+            <AppContent />
+        </AuthProvider>
     );
 }
