@@ -3,70 +3,20 @@
     "name": "MyStory",
     "slug": "mystory",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "scheme": "mystory",
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.joanakibode.mystory",
       "config": {
         "usesNonExemptEncryption": false
-      },
-      "googleServicesFile": "./GoogleService-Info.plist"
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "package": "com.joanakibode.mystory",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.joanakibode.mystory"
     },
     "web": {
-      "favicon": "./assets/favicon.png",
-      "config": {
-        "firebase": {
-          "apiKey": "AIzaSyCciXLhRfSltkmGxEcBod2h43V",
-          "authDomain": "mystory-3de1d.firebaseapp.com",
-          "projectId": "mystory-3de1d",
-          "storageBucket": "mystory-3de1d.appspot.com",
-          "messagingSenderId": "948826044299",
-          "appId": "1:948826044299:ios:d39b8703fbbd26c56fa18e",
-          "measurementId": "G-WM5J01SZVJ"
-        }
-      }
-    },
-    "plugins": [
-      "@react-native-firebase/app",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#ffffff",
-          "sounds": ["./assets/notification-sound.wav"]
-        }
-      ],
-      [
-        "expo-build-properties",
-        {
-          "ios": {
-            "useFrameworks": "static"
-          }
-        }
-      ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "your-project-id"
-      }
+      "bundler": "metro"
     }
   }
 }

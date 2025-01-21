@@ -82,7 +82,9 @@ export async function getFCMToken() {
             }
 
             // Get token for mobile
-            const token = await Notifications.getExpoPushTokenAsync();
+            const token = await Notifications.getExpoPushTokenAsync({
+                projectId: "0f8c6544-565a-49f0-aa9c-f9890a56c009"
+            });
             console.log('Mobile FCM Token:', token.data);
             return token.data;
         }
