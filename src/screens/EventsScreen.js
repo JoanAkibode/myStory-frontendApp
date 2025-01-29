@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { getApiUrl } from '../utils/config';
 import { useAuth } from '../context/AuthContext';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function EventsScreen() {
     const { user, isReady } = useAuth();
@@ -13,6 +14,16 @@ export default function EventsScreen() {
     const [activeTab, setActiveTab] = useState('current');
     const [refreshing, setRefreshing] = useState(false);
     const [syncInProgress, setSyncInProgress] = useState(false);
+
+    // Add focus effect to refresh events when screen comes into focus
+    useFocusEffect(
+        React.useCallback(() => {
+            if (isReady && user) {
+                // Always fetch fresh events when screen comes into focus
+                fetchFreshEvents();
+            }
+        }, [isReady, user])
+    );
 
     useEffect(() => {
         console.log('EventsScreen useEffect - Auth state:', { isReady, hasUser: !!user });
@@ -29,6 +40,7 @@ export default function EventsScreen() {
             return;
         }
 
+        // On initial load, try to load from cache first
         loadEvents();
     }, [isReady, user]);
 
@@ -59,15 +71,16 @@ export default function EventsScreen() {
     const fetchFreshEvents = async () => {
         try {
             setSyncInProgress(true);
+            setLoading(true);
             const token = await AsyncStorage.getItem('token');
             
             if (!token) {
-                // Don't clear cache, just stop the sync
                 throw new Error('No auth token found');
             }
 
-            const response = await fetch(`${getApiUrl()}/calendar/sync/full`, {
-                method: 'POST',
+            console.log('Fetching fresh events...');
+            const response = await fetch(`${getApiUrl()}/calendar/events`, {
+                method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -75,31 +88,73 @@ export default function EventsScreen() {
             });
             
             if (!response.ok) {
-                // Only clear cache on actual auth errors (401)
-                if (response.status === 401) {
-                    await AsyncStorage.removeItem('calendar_events');
-                    await AsyncStorage.removeItem('calendar_last_sync');
-                }
                 const errorText = await response.text();
-                console.error('Calendar sync failed:', {
+                console.error('Calendar fetch failed:', {
                     status: response.status,
                     statusText: response.statusText,
                     error: errorText
                 });
-                throw new Error(`Sync failed: ${response.status}`);
+
+                // Handle Google token expiration
+                if (response.status === 401 || 
+                    (response.status === 400 && errorText.includes('invalid_grant'))) {
+                    // Clear all tokens
+                    await AsyncStorage.multiRemove([
+                        'token',
+                        'calendar_events',
+                        'calendar_last_sync',
+                        'google_access_token',
+                        'google_refresh_token'
+                    ]);
+                    
+                    // Show error message and prompt for re-auth
+                    Alert.alert(
+                        'Session Expired',
+                        'Your Google Calendar access has expired. Please log in again to reconnect.',
+                        [
+                            {
+                                text: 'OK',
+                                onPress: () => {
+                                    // Navigate to Login screen
+                                    navigation.reset({
+                                        index: 0,
+                                        routes: [{ name: 'Login' }],
+                                    });
+                                }
+                            }
+                        ]
+                    );
+                    throw new Error('Google Calendar access expired');
+                }
+                
+                throw new Error(`Failed to fetch events (${response.status})`);
             }
             
             const data = await response.json();
+            console.log('Received events data:', {
+                eventCount: data.events ? data.events.length : 0,
+                firstEvent: data.events && data.events.length > 0 ? {
+                    summary: data.events[0].summary,
+                    start: data.events[0].start.dateTime
+                } : null
+            });
+
+            if (!data.events) {
+                console.log('No events array in response:', data);
+                throw new Error('Invalid response format from server');
+            }
             
             // Update cache and state with fresh data
             await AsyncStorage.setItem('calendar_events', JSON.stringify(data.events));
             await AsyncStorage.setItem('calendar_last_sync', new Date().toISOString());
             setEvents(data.events);
-            setLoading(false);
+            setError(null);
         } catch (error) {
             console.error('Error fetching fresh events:', error);
-            setError(error.message);
+            setError(error.message || 'Failed to fetch events');
+            setEvents([]);
         } finally {
+            setLoading(false);
             setSyncInProgress(false);
         }
     };
@@ -155,10 +210,20 @@ export default function EventsScreen() {
         yesterday.setDate(yesterday.getDate() - 1);
         yesterday.setHours(0, 0, 0, 0);
 
-        return {
-            current: events.filter(event => new Date(event.start.dateTime) >= yesterday),
-            past: events.filter(event => new Date(event.start.dateTime) < yesterday)
-        };
+        const current = events.filter(event => new Date(event.start.dateTime) >= yesterday);
+        const past = events.filter(event => new Date(event.start.dateTime) < yesterday);
+
+        console.log('Filtered events:', {
+            totalEvents: events.length,
+            currentEvents: current.length,
+            pastEvents: past.length,
+            firstCurrentEvent: current.length > 0 ? {
+                summary: current[0].summary,
+                start: current[0].start.dateTime
+            } : null
+        });
+
+        return { current, past };
     };
 
     const renderEventCard = (event) => (
@@ -203,9 +268,24 @@ export default function EventsScreen() {
     );
 
     const handleRefresh = async () => {
-        setRefreshing(true);
-        await fetchFreshEvents();
-        setRefreshing(false);
+        try {
+            console.log('Starting refresh...');
+            setRefreshing(true);
+            
+            // Clear the cache to force a fresh fetch
+            await AsyncStorage.removeItem('calendar_events');
+            await AsyncStorage.removeItem('calendar_last_sync');
+            
+            // Fetch fresh events
+            await fetchFreshEvents();
+            
+            console.log('Refresh completed successfully');
+        } catch (error) {
+            console.error('Error during refresh:', error);
+            Alert.alert('Error', 'Failed to refresh events. Please try again.');
+        } finally {
+            setRefreshing(false);
+        }
     };
 
     const isCacheValid = async () => {
@@ -225,8 +305,25 @@ export default function EventsScreen() {
 
     if (loading) {
         return (
-            <View style={styles.container}>
-                <Text>Loading events...</Text>
+            <View style={[styles.container, styles.centerContent]}>
+                <ActivityIndicator size="large" color="#007AFF" />
+                <Text style={styles.loadingText}>
+                    {error ? `Error: ${error}` : 'Loading events...'}
+                </Text>
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View style={[styles.container, styles.centerContent]}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity 
+                    style={styles.retryButton}
+                    onPress={handleRefresh}
+                >
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -405,5 +502,30 @@ const styles = StyleSheet.create({
     eventsList: {
         flex: 1,
         padding: 15,
+    },
+    centerContent: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    loadingText: {
+        marginTop: 10,
+        color: '#666',
+        textAlign: 'center',
+    },
+    errorText: {
+        color: '#ff4444',
+        textAlign: 'center',
+        marginBottom: 15,
+    },
+    retryButton: {
+        backgroundColor: '#007AFF',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 5,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
     },
 }); 

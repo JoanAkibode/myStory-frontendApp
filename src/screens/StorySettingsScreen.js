@@ -48,6 +48,10 @@ export default function StorySettingsScreen() {
     const [showMinutePicker, setShowMinutePicker] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
+    const [calendars, setCalendars] = useState([]);
+    const [selectedCalendarIds, setSelectedCalendarIds] = useState([]);
+    const [tempSelectedCalendarIds, setTempSelectedCalendarIds] = useState([]);
+    const [loadingCalendars, setLoadingCalendars] = useState(true);
 
     const HourMarkers = () => {
         // Generate markers for every hour (24 hours)
@@ -134,9 +138,11 @@ export default function StorySettingsScreen() {
     useEffect(() => {
         Promise.all([
             loadSettings(),
-            fetchCategories()
+            fetchCategories(),
+            fetchCalendars()
         ]).finally(() => setLoading(false));
     }, []);
+
     const loadSettings = async () => {
         try {
             const token = await AsyncStorage.getItem('token');
@@ -223,9 +229,45 @@ export default function StorySettingsScreen() {
         }
     };
 
+    const fetchCalendars = async () => {
+        try {
+            setLoadingCalendars(true);
+            const token = await AsyncStorage.getItem('token');
+            const response = await fetch(`${getApiUrl()}/calendar/sync/calendars`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setCalendars(data);
+                const selectedIds = data.filter(cal => cal.selected).map(cal => cal.id);
+                setSelectedCalendarIds(selectedIds);
+                setTempSelectedCalendarIds(selectedIds);
+            }
+        } catch (error) {
+            console.error('Error fetching calendars:', error);
+            Alert.alert('Error', 'Failed to load calendars');
+        } finally {
+            setLoadingCalendars(false);
+        }
+    };
+
+    const toggleCalendar = (calendarId) => {
+        setTempSelectedCalendarIds(prev => 
+            prev.includes(calendarId)
+                ? prev.filter(id => id !== calendarId)
+                : [...prev, calendarId]
+        );
+    };
+
     const saveSettings = async () => {
         try {
+            setLoading(true);
             const token = await AsyncStorage.getItem('token');
+
+            // First save user settings - this is quick
             const response = await fetch(`${getApiUrl()}/user/profile`, {
                 method: 'PATCH',
                 headers: {
@@ -243,15 +285,69 @@ export default function StorySettingsScreen() {
                 })
             });
 
-            if (response.ok) {
-                showToastMessage('Settings saved successfully!');
-            } else {
+            if (!response.ok) {
                 throw new Error('Failed to save settings');
+            }
+
+            // If calendar selection changed, trigger sync
+            if (!arrayEquals(selectedCalendarIds, tempSelectedCalendarIds)) {
+                // Update local state immediately
+                setSelectedCalendarIds(tempSelectedCalendarIds);
+                
+                // Sync calendars and wait for completion
+                const syncResponse = await fetch(`${getApiUrl()}/calendar/sync/calendars`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ calendarIds: tempSelectedCalendarIds })
+                });
+
+                if (!syncResponse.ok) {
+                    throw new Error('Failed to sync calendars');
+                }
+
+                // After calendar selection is updated, trigger a full calendar sync
+                const fullSyncResponse = await fetch(`${getApiUrl()}/calendar/sync/full`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!fullSyncResponse.ok) {
+                    throw new Error('Failed to sync events');
+                }
+
+                // Clear the events cache to force a fresh load
+                await AsyncStorage.removeItem('calendar_events');
+                await AsyncStorage.removeItem('calendar_last_sync');
+
+                // Show success message
+                Alert.alert('Success', 'Settings saved and calendars updated successfully');
+                
+                // Navigate back to dashboard to refresh events
+                navigation.goBack();
+            } else {
+                // Just show success message for settings update
+                Alert.alert('Success', 'Settings saved successfully');
             }
         } catch (error) {
             console.error('Error saving settings:', error);
-            showToastMessage('Failed to save settings');
+            Alert.alert('Error', error.message || 'Failed to save settings');
+        } finally {
+            setLoading(false);
         }
+    };
+
+    // Helper function to compare arrays
+    const arrayEquals = (a, b) => {
+        return Array.isArray(a) &&
+            Array.isArray(b) &&
+            a.length === b.length &&
+            a.every((val, index) => val === b[index]);
     };
 
     const startNewStory = async () => {
@@ -353,6 +449,36 @@ export default function StorySettingsScreen() {
 
     return (
         <ScrollView style={styles.container}>
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Calendar Selection</Text>
+                {loadingCalendars ? (
+                    <ActivityIndicator size="small" color="#007AFF" />
+                ) : (
+                    <>
+                        <Text style={styles.description}>
+                            Choose which calendars to include in your story. By default, all calendars are selected.
+                        </Text>
+                        {calendars.map((calendar) => (
+                            <View key={calendar.id} style={styles.calendarItem}>
+                                <TouchableOpacity
+                                    onPress={() => toggleCalendar(calendar.id)}
+                                >
+                                    <View style={[
+                                        styles.checkbox,
+                                        tempSelectedCalendarIds.includes(calendar.id) && styles.checkboxSelected
+                                    ]}>
+                                        {tempSelectedCalendarIds.includes(calendar.id) && (
+                                            <Text style={styles.checkmark}>✓</Text>
+                                        )}
+                                    </View>
+                                </TouchableOpacity>
+                                <Text style={styles.calendarName}>{calendar.name}</Text>
+                            </View>
+                        ))}
+                    </>
+                )}
+            </View>
+
             <TouchableOpacity 
                 style={styles.resetButton}
                 onPress={startNewStory}
@@ -574,8 +700,14 @@ export default function StorySettingsScreen() {
                 </Text>
             </View>
 
-            <TouchableOpacity style={styles.saveButton} onPress={saveSettings}>
-                <Text style={styles.saveButtonText}>Save Settings</Text>
+            <TouchableOpacity 
+                style={[styles.saveButton, loading && styles.disabledButton]}
+                onPress={saveSettings}
+                disabled={loading}
+            >
+                <Text style={styles.saveButtonText}>
+                    {loading ? 'Saving...' : 'Save Settings'}
+                </Text>
             </TouchableOpacity>
 
             {showToast && (
@@ -655,13 +787,13 @@ const styles = StyleSheet.create({
         backgroundColor: '#007AFF',
         padding: 15,
         borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 20,
+        marginVertical: 10,
     },
     saveButtonText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
+        textAlign: 'center',
+        fontWeight: '600',
     },
     loadingContainer: {
         flex: 1,
@@ -846,17 +978,14 @@ const styles = StyleSheet.create({
     resetButton: {
         backgroundColor: '#FF3B30',
         padding: 15,
-        borderRadius: 10,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        margin: 15,
+        borderRadius: 8,
+        marginVertical: 10,
     },
     resetButtonText: {
         color: '#fff',
         fontSize: 16,
-        fontWeight: 'bold',
         textAlign: 'center',
+        fontWeight: '600',
     },
     wordCountButton: {
         flex: 1,
@@ -910,20 +1039,35 @@ const styles = StyleSheet.create({
         color: '#007AFF',
         fontSize: 16,
     },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        marginBottom: 10,
-    },
-    pickerOption: {
-        padding: 15,
+    calendarItem: {
+        paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
+        flexDirection: 'row',
+        alignItems: 'center',
     },
-    pickerOptionText: {
+    checkbox: {
+        width: 24,
+        height: 24,
+        borderWidth: 2,
+        borderColor: '#007AFF',
+        borderRadius: 4,
+        marginRight: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    checkboxSelected: {
+        backgroundColor: '#007AFF',
+    },
+    checkmark: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    calendarName: {
         fontSize: 16,
         color: '#333',
-        textAlign: 'center',
+        flex: 1,
     },
     toastContainer: {
         position: 'absolute',
@@ -945,5 +1089,8 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         textAlign: 'center',
+    },
+    disabledButton: {
+        opacity: 0.5,
     },
 }); 
