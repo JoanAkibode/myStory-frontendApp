@@ -6,7 +6,7 @@ workflows:
     environment:
       vars:
         TEST_TOKEN: test_value_123
-        EXPO_TOKEN: ${{ env.EXPO_TOKEN }}
+        EXPO_TOKEN: $EXPO_TOKEN
       node: latest
     triggering:
       events:
@@ -73,7 +73,7 @@ workflows:
     artifacts:
       - "*.ipa"
       - "*.app"
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM 
+      - "build/ios/ipa/*.ipa"
+      - "/tmp/xcodebuild_logs/*.log"
+      - "$HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app"
+      - "$HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM" 
