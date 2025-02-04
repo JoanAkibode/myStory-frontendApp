@@ -6,7 +6,6 @@ workflows:
     environment:
       groups:
         - environment variables  # Group containing variables like API_KEY, CERTIFICATE
-        - codemagic_defaults  # Built-in variables (e.g., CM_BUILD_ID, CM_BRANCH)[1][6]
       vars:
         TEST_TOKEN: test_value_123
         EXPO_TOKEN: $EXPO_TOKEN
