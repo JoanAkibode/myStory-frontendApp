@@ -134,10 +134,7 @@ export default function StoriesScreen({ navigation }) {
 
     const handleRefresh = async () => {
         setRefreshing(true);
-        await Promise.all([
-            fetchStories(),
-            checkForTodayStory()
-        ]);
+        await fetchStories();
         setRefreshing(false);
     };
 

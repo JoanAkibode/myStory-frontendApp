@@ -5,9 +5,16 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       vars:
-        EXPO_CLI_USERNAME: supermegajojo
-        EXPO_CLI_PASSWORD: 9tayPlz7F5
+        EXPO_TOKEN: ${EXPO_TOKEN}
       node: latest
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    ssh_access:
+      enabled: true    # Enables SSH/VNC access for debugging
     scripts:
       - name: Install dependencies
         script: |
@@ -15,7 +22,7 @@ workflows:
       - name: Set up EAS
         script: |
           npm install -g eas-cli
-          eas login -u supermegajojo -p 9tayPlz7F5
+          eas login --token ${EXPO_TOKEN}
       - name: Build iOS app
         script: |
           eas build --platform ios --profile development --non-interactive

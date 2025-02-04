@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import HomeScreen from './src/screens/HomeScreen';
@@ -13,6 +13,7 @@ import UserSettingsScreen from './src/screens/UserSettingsScreen';
 import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import { getFCMToken, updateFCMToken, onMessageReceived } from './src/config/firebase';
+import { Notifications } from 'react-native';
 
 const Stack = createNativeStackNavigator();
 
@@ -36,7 +37,15 @@ const linking = {
                 }
             },
             Home: 'home',
-            Dashboard: 'dashboard',
+            Dashboard: {
+                screens: {
+                    Stories: {
+                        screens: {
+                            StoryReading: 'story/:storyId',
+                        }
+                    }
+                }
+            },
             Admin: 'admin-panel-secret',
             StorySettings: 'story-settings'
         }
@@ -61,9 +70,12 @@ function HeaderSettingsButton({ onPress }) {
     );
 }
 
-function AppContent() {
-    const { user, isReady } = useAuth();
+// Main navigation stack
+function MainNavigator() {
+    const { user } = useAuth();
+    const navigation = useNavigation();
 
+    // Notification setup effect
     useEffect(() => {
         const setupNotifications = async () => {
             try {
@@ -74,24 +86,117 @@ function AppContent() {
                     await updateFCMToken(token);
                 }
 
-                // Set up notification listener
-                const subscription = onMessageReceived(notification => {
+                // Set up notification received listener
+                const receivedSubscription = onMessageReceived(notification => {
                     console.log('Received notification:', notification);
-                    // Handle the notification as needed
+                });
+
+                // Set up notification response listener (when user clicks the notification)
+                const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
+                    const data = response.notification.request.content.data;
+                    console.log('Notification clicked:', data);
+
+                    if (data.type === 'story' && data.storyId) {
+                        // Navigate to the specific story
+                        navigation.navigate('Dashboard', {
+                            screen: 'Stories',
+                            params: {
+                                screen: 'StoryReading',
+                                params: { storyId: data.storyId }
+                            }
+                        });
+                    }
                 });
 
                 return () => {
-                    subscription.remove();
+                    receivedSubscription.remove();
+                    responseSubscription.remove();
                 };
             } catch (error) {
                 console.error('Error setting up notifications:', error);
             }
         };
 
-        if (isReady && user) {
+        if (user) {
             setupNotifications();
         }
-    }, [isReady, user]);
+    }, [user, navigation]);
+
+    return (
+        <Stack.Navigator 
+            initialRouteName={user ? "Dashboard" : "Login"}
+            screenListeners={{
+                state: (e) => {
+                    console.log('Screen state changed:', e.data);
+                }
+            }}
+        >
+            <Stack.Screen 
+                name="Login" 
+                component={LoginScreen}
+                options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+                name="Home" 
+                component={HomeScreen}
+                options={{ 
+                    headerLeft: null,
+                    gestureEnabled: false
+                }}
+            />
+            <Stack.Screen 
+                name="Settings" 
+                component={UserSettingsScreen}
+                options={{
+                    title: 'Settings',
+                    headerBackTitle: 'Back'
+                }}
+            />
+            <Stack.Screen 
+                name="Dashboard" 
+                component={DashboardScreen}
+                options={({ navigation }) => ({
+                    title: 'My Dashboard',
+                    headerLeft: null,
+                    gestureEnabled: false,
+                    headerRight: () => (
+                        <HeaderSettingsButton 
+                            onPress={() => navigation.navigate('Settings')}
+                        />
+                    )
+                })}
+            />
+            <Stack.Screen 
+                name="Admin" 
+                component={AdminScreen}
+                options={{
+                    title: 'Admin Panel',
+                    headerLeft: null,
+                    gestureEnabled: false
+                }}
+            />
+            <Stack.Screen 
+                name="StorySettings" 
+                component={StorySettingsScreen}
+                options={{
+                    title: 'Story Settings',
+                    headerBackTitle: 'Back'
+                }}
+            />
+            <Stack.Screen 
+                name="StoryReading" 
+                component={StoryReadingScreen}
+                options={{
+                    title: 'Story',
+                    headerBackTitle: 'Back'
+                }}
+            />
+        </Stack.Navigator>
+    );
+}
+
+function AppContent() {
+    const { isReady } = useAuth();
 
     if (!isReady) {
         return null;
@@ -105,75 +210,7 @@ function AppContent() {
                     console.log('Navigation state changed:', state);
                 }}
             >
-                <Stack.Navigator 
-                    initialRouteName={user ? "Dashboard" : "Login"}
-                    screenListeners={{
-                        state: (e) => {
-                            console.log('Screen state changed:', e.data);
-                        }
-                    }}
-                >
-                    <Stack.Screen 
-                        name="Login" 
-                        component={LoginScreen}
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen 
-                        name="Home" 
-                        component={HomeScreen}
-                        options={{ 
-                            headerLeft: null,
-                            gestureEnabled: false
-                        }}
-                    />
-                    <Stack.Screen 
-                        name="Settings" 
-                        component={UserSettingsScreen}
-                        options={{
-                            title: 'Settings',
-                            headerBackTitle: 'Back'
-                        }}
-                    />
-                    <Stack.Screen 
-                        name="Dashboard" 
-                        component={DashboardScreen}
-                        options={({ navigation }) => ({
-                            title: 'My Dashboard',
-                            headerLeft: null,
-                            gestureEnabled: false,
-                            headerRight: () => (
-                                <HeaderSettingsButton 
-                                    onPress={() => navigation.navigate('Settings')}
-                                />
-                            )
-                        })}
-                    />
-                    <Stack.Screen 
-                        name="Admin" 
-                        component={AdminScreen}
-                        options={{
-                            title: 'Admin Panel',
-                            headerLeft: null,
-                            gestureEnabled: false
-                        }}
-                    />
-                    <Stack.Screen 
-                        name="StorySettings" 
-                        component={StorySettingsScreen}
-                        options={{
-                            title: 'Story Settings',
-                            headerBackTitle: 'Back'
-                        }}
-                    />
-                    <Stack.Screen 
-                        name="StoryReading" 
-                        component={StoryReadingScreen}
-                        options={{
-                            title: 'Story',
-                            headerBackTitle: 'Back'
-                        }}
-                    />
-                </Stack.Navigator>
+                <MainNavigator />
             </NavigationContainer>
         </View>
     );

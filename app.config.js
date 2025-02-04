@@ -7,7 +7,13 @@ export default {
         version: "1.0.0",
         scheme: "mystory",
         owner: "supermegajojo",
-        newArchEnabled: true,
+        // newArchEnabled: true,  // Temporarily disabled for testing
+        icon: "./assets/icon.png",
+        splash: {
+            image: "./assets/splash.png",
+            resizeMode: "contain",
+            backgroundColor: "#ffffff"
+        },
         ios: {
             supportsTablet: true,
             bundleIdentifier: "com.joanakibode.mystory",
@@ -16,7 +22,11 @@ export default {
             }
         },
         android: {
-            package: "com.joanakibode.mystory"
+            package: "com.joanakibode.mystory",
+            adaptiveIcon: {
+                foregroundImage: "./assets/adaptive-icon.png",
+                backgroundColor: "#ffffff"
+            }
         },
         web: {
             bundler: "metro"

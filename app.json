@@ -3,20 +3,41 @@
     "name": "MyStory",
     "slug": "mystory",
     "version": "1.0.0",
-    "scheme": "mystory",
-    "newArchEnabled": true,
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.joanakibode.mystory",
-      "config": {
-        "usesNonExemptEncryption": false
-      }
+      "bundleIdentifier": "com.joanakibode.mystory"
     },
     "android": {
-      "package": "com.joanakibode.mystory"
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.joanakibode.mystory",
+      "permissions": [
+        "NOTIFICATIONS"
+      ],
+      "versionCode": 1
     },
-    "web": {
-      "bundler": "metro"
-    }
+    "scheme": "mystory",
+    "extra": {
+      "eas": {
+        "projectId": "0f8c6544-565a-49f0-aa9c-f9890a56c009"
+      }
+    },
+    "plugins": [
+      "expo-notifications"
+    ],
+    "owner": "supermegajojo"
   }
 }
