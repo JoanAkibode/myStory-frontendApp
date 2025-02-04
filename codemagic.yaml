@@ -13,8 +13,6 @@ workflows:
       branch_patterns:
         - pattern: main
           include: true
-    ssh_access:
-      enabled: true    # Enables SSH/VNC access for debugging
     scripts:
       - name: Install dependencies
         script: |
