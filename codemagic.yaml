@@ -5,8 +5,7 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       vars:
-        # Token from Codemagic environment variables
-        EXPO_TOKEN: ${EXPO_TOKEN}
+        EXPO_TOKEN: $EXPO_TOKEN
       node: latest
     triggering:
       events:
@@ -31,16 +30,35 @@ workflows:
           echo "EAS CLI version:"
           eas --version
           
-          # Verify EXPO_TOKEN is set (without printing the actual token)
+          # Debug environment
+          echo "Environment debugging:"
+          echo "Shell: $SHELL"
+          echo "PWD: $PWD"
+          
+          # Verify EXPO_TOKEN without exposing it
           if [ -z "$EXPO_TOKEN" ]; then
             echo "Error: EXPO_TOKEN is not set"
             exit 1
           else
-            echo "EXPO_TOKEN is set and has length: ${#EXPO_TOKEN}"
+            TOKEN_LENGTH=${#EXPO_TOKEN}
+            echo "EXPO_TOKEN length: $TOKEN_LENGTH"
+            
+            # Print token format for debugging (safely)
+            echo "Token format check:"
+            if [[ $EXPO_TOKEN == *"_"* ]]; then
+              echo "Token contains expected underscore character"
+            else
+              echo "Warning: Token format might be incorrect"
+            fi
           fi
+          
+          # Create temporary EAS config
+          echo "Creating temporary EAS config..."
+          echo "{\"cli\": {\"version\": \">= 5.9.1\",\"appVersionSource\": \"local\"},\"build\": {\"development\": {\"developmentClient\": true,\"distribution\": \"internal\"}}}" > eas.json
           
           # Attempt to login with token
           echo "Logging in to EAS..."
+          export EXPO_TOKEN="$EXPO_TOKEN"
           eas login --token "$EXPO_TOKEN"
           
           # Verify login status
