@@ -5,6 +5,7 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       vars:
+        # Token from Codemagic environment variables
         EXPO_TOKEN: ${EXPO_TOKEN}
       node: latest
     triggering:
@@ -16,14 +17,39 @@ workflows:
     scripts:
       - name: Install dependencies
         script: |
-          npm install
+          # Clean install to avoid cache issues
+          rm -rf node_modules
+          # Install dependencies with legacy peer deps to handle warnings
+          npm install --legacy-peer-deps
       - name: Set up EAS
         script: |
+          # Install EAS CLI
+          echo "Installing EAS CLI..."
           npm install -g eas-cli
-          eas login --token ${EXPO_TOKEN}
+          
+          # Debug: Print EAS CLI version
+          echo "EAS CLI version:"
+          eas --version
+          
+          # Verify EXPO_TOKEN is set (without printing the actual token)
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "Error: EXPO_TOKEN is not set"
+            exit 1
+          else
+            echo "EXPO_TOKEN is set and has length: ${#EXPO_TOKEN}"
+          fi
+          
+          # Attempt to login with token
+          echo "Logging in to EAS..."
+          eas login --token "$EXPO_TOKEN"
+          
+          # Verify login status
+          echo "Verifying EAS login status..."
+          eas whoami
       - name: Build iOS app
         script: |
-          eas build --platform ios --profile development --non-interactive
+          echo "Starting iOS build..."
+          eas build --platform ios --profile development --non-interactive --json
     artifacts:
       - "*.ipa"
       - "*.app"
