@@ -5,7 +5,8 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       vars:
-        EXPO_TOKEN: $EXPO_TOKEN
+        TEST_TOKEN: test_value_123
+        EXPO_TOKEN: ${{ env.EXPO_TOKEN }}
       node: latest
     triggering:
       events:
@@ -14,6 +15,12 @@ workflows:
         - pattern: main
           include: true
     scripts:
+      - name: Test environment variables
+        script: |
+          echo "Testing environment variable expansion:"
+          echo "TEST_TOKEN value: $TEST_TOKEN"
+          echo "EXPO_TOKEN exists: $([[ -n $EXPO_TOKEN ]] && echo 'yes' || echo 'no')"
+          
       - name: Install dependencies
         script: |
           # Clean install to avoid cache issues
@@ -34,8 +41,6 @@ workflows:
           echo "Environment debugging:"
           echo "Shell: $SHELL"
           echo "PWD: $PWD"
-          echo "All environment variables (names only):"
-          env | cut -d= -f1
           
           # Verify EXPO_TOKEN without exposing it
           if [ -z "$EXPO_TOKEN" ]; then
@@ -46,24 +51,16 @@ workflows:
             echo "EXPO_TOKEN length: $TOKEN_LENGTH"
             echo "First character: ${EXPO_TOKEN:0:1}"
             echo "Last character: ${EXPO_TOKEN: -1}"
-            echo "Contains underscore: $(echo $EXPO_TOKEN | grep -c "_")"
-            echo "Number of characters before first underscore: $(echo $EXPO_TOKEN | cut -d'_' -f1 | wc -c)"
-            echo "Number of parts split by underscore: $(echo $EXPO_TOKEN | tr -cd '_' | wc -c)"
             
             if [ $TOKEN_LENGTH -ne 40 ]; then
               echo "WARNING: Token length ($TOKEN_LENGTH) is not the expected 40 characters"
               echo "This suggests the token might not be set correctly in Codemagic"
+              exit 1
             fi
           fi
           
-          # Try reading token from environment file
-          echo "EXPO_TOKEN=$EXPO_TOKEN" > .env.tmp
-          echo "Token from file length: $(cat .env.tmp | cut -d= -f2 | wc -c)"
-          rm .env.tmp
-          
           # Attempt to login with token
           echo "Logging in to EAS..."
-          export EXPO_TOKEN="$EXPO_TOKEN"
           eas login --token "$EXPO_TOKEN"
           
           # Verify login status
