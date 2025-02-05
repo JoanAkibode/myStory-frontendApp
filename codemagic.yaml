@@ -5,10 +5,9 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       groups:
-        - environment variables  # Group containing variables like API_KEY, CERTIFICATE
+        - ENV-VAR  # This group should contain your EXPO_TOKEN
       vars:
-        TEST_TOKEN: test_value_123
-        EXPO_TOKEN: $EXPO_TOKEN
+        EXPO_TOKEN: $EXPO_TOKEN  # This will use the EXPO_TOKEN from the ENV-VAR group
       node: latest
     triggering:
       events:
@@ -20,7 +19,6 @@ workflows:
       - name: Test environment variables
         script: |
           echo "Testing environment variable expansion:"
-          echo "TEST_TOKEN value: $TEST_TOKEN"
           echo "EXPO_TOKEN exists: $([[ -n $EXPO_TOKEN ]] && echo 'yes' || echo 'no')"
           
       - name: Install dependencies
