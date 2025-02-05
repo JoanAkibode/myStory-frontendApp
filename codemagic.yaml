@@ -6,8 +6,6 @@ workflows:
     environment:
       groups:
         - ENV-VAR  # This group should contain your EXPO_TOKEN
-      vars:
-        EXPO_TOKEN: $EXPO_TOKEN  # This will use the EXPO_TOKEN from the ENV-VAR group
       node: latest
     triggering:
       events:
@@ -20,6 +18,7 @@ workflows:
         script: |
           echo "Testing environment variable expansion:"
           echo "EXPO_TOKEN exists: $([[ -n $EXPO_TOKEN ]] && echo 'yes' || echo 'no')"
+          echo "CM_EXPO_TOKEN exists: $([[ -n $CM_EXPO_TOKEN ]] && echo 'yes' || echo 'no')"
           
       - name: Install dependencies
         script: |
@@ -27,6 +26,7 @@ workflows:
           rm -rf node_modules
           # Install dependencies with legacy peer deps to handle warnings
           npm install --legacy-peer-deps
+          
       - name: Set up EAS
         script: |
           # Install EAS CLI
@@ -43,37 +43,44 @@ workflows:
           echo "PWD: $PWD"
           
           # Verify EXPO_TOKEN without exposing it
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "Error: EXPO_TOKEN is not set"
-            exit 1
+          if [ -n "$EXPO_TOKEN" ]; then
+            TOKEN_TO_USE="$EXPO_TOKEN"
+          elif [ -n "$CM_EXPO_TOKEN" ]; then
+            TOKEN_TO_USE="$CM_EXPO_TOKEN"
+            echo "Using CM_EXPO_TOKEN instead of EXPO_TOKEN"
           else
-            TOKEN_LENGTH=${#EXPO_TOKEN}
-            echo "EXPO_TOKEN length: $TOKEN_LENGTH"
-            echo "First character: ${EXPO_TOKEN:0:1}"
-            echo "Last character: ${EXPO_TOKEN: -1}"
-            
-            if [ $TOKEN_LENGTH -ne 40 ]; then
-              echo "WARNING: Token length ($TOKEN_LENGTH) is not the expected 40 characters"
-              echo "This suggests the token might not be set correctly in Codemagic"
-              exit 1
-            fi
+            echo "Error: Neither EXPO_TOKEN nor CM_EXPO_TOKEN is set"
+            exit 1
+          fi
+          
+          TOKEN_LENGTH=${#TOKEN_TO_USE}
+          echo "Token length: $TOKEN_LENGTH"
+          echo "First character: ${TOKEN_TO_USE:0:1}"
+          echo "Last character: ${TOKEN_TO_USE: -1}"
+          
+          if [ $TOKEN_LENGTH -ne 40 ]; then
+            echo "WARNING: Token length ($TOKEN_LENGTH) is not the expected 40 characters"
+            echo "This suggests the token might not be set correctly in Codemagic"
+            exit 1
           fi
           
           # Attempt to login with token
           echo "Logging in to EAS..."
-          eas login --token "$EXPO_TOKEN"
+          eas login --token "$TOKEN_TO_USE"
           
           # Verify login status
           echo "Verifying EAS login status..."
           eas whoami
+          
       - name: Build iOS app
         script: |
           echo "Starting iOS build..."
           eas build --platform ios --profile development --non-interactive --json
+          
     artifacts:
       - "*.ipa"
       - "*.app"
       - "build/ios/ipa/*.ipa"
       - "/tmp/xcodebuild_logs/*.log"
       - "$HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app"
-      - "$HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM" 
+      - "$HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM"
