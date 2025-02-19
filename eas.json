@@ -8,13 +8,17 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "credentialsSource": "remote",
+        "teamId": "${EXPO_APPLE_TEAM_ID}"
       }
     },
     "preview": {
       "distribution": "internal",
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "credentialsSource": "remote",
+        "teamId": "${EXPO_APPLE_TEAM_ID}"
       }
     }
   }
