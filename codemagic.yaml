@@ -49,7 +49,8 @@ workflows:
       - name: Build iOS app
         script: |
           echo "Starting iOS build..."
-          eas build --platform ios --profile development --non-interactive --json --local
+          eas build --platform ios --profile development --non-interactive --json \
+            --team-id "$EXPO_APPLE_TEAM_ID"
           
     artifacts:
       - "*.ipa"
