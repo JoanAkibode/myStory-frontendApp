@@ -5,7 +5,7 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       groups:
-        - ENV-VAR  # This group needs EXPO_TOKEN, EXPO_APPLE_TEAM_ID
+        - ENV-VAR  # This group needs EXPO_TOKEN
       node: latest
     triggering:
       events:
@@ -49,7 +49,7 @@ workflows:
       - name: Build iOS app
         script: |
           echo "Starting iOS build..."
-          eas build --platform ios --profile development --non-interactive --json
+          eas build --platform ios --profile development --non-interactive --auto-submit
           
     artifacts:
       - "*.ipa"

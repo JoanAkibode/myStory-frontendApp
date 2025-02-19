@@ -9,16 +9,14 @@
       "distribution": "internal",
       "ios": {
         "resourceClass": "m-medium",
-        "credentialsSource": "remote",
-        "teamId": "${EXPO_APPLE_TEAM_ID}"
+        "credentialsSource": "remote"
       }
     },
     "preview": {
       "distribution": "internal",
       "ios": {
         "resourceClass": "m-medium",
-        "credentialsSource": "remote",
-        "teamId": "${EXPO_APPLE_TEAM_ID}"
+        "credentialsSource": "remote"
       }
     }
   }
