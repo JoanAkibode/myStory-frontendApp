@@ -5,7 +5,7 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       groups:
-        - ENV-VAR  # This group should contain your EXPO_TOKEN
+        - ENV-VAR  # This group only needs EXPO_TOKEN
       node: latest
     triggering:
       events:
@@ -14,12 +14,6 @@ workflows:
         - pattern: main
           include: true
     scripts:
-      - name: Test environment variables
-        script: |
-          echo "Testing environment variable expansion:"
-          echo "EXPO_TOKEN exists: $([[ -n $EXPO_TOKEN ]] && echo 'yes' || echo 'no')"
-          echo "CM_EXPO_TOKEN exists: $([[ -n $CM_EXPO_TOKEN ]] && echo 'yes' || echo 'no')"
-          
       - name: Install dependencies
         script: |
           # Clean install to avoid cache issues
@@ -37,11 +31,6 @@ workflows:
           echo "EAS CLI version:"
           eas --version
           
-          # Debug environment
-          echo "Environment debugging:"
-          echo "Shell: $SHELL"
-          echo "PWD: $PWD"
-          
           # Verify EXPO_TOKEN without exposing it
           if [ -n "$EXPO_TOKEN" ]; then
             TOKEN_TO_USE="$EXPO_TOKEN"
@@ -50,17 +39,6 @@ workflows:
             echo "Using CM_EXPO_TOKEN instead of EXPO_TOKEN"
           else
             echo "Error: Neither EXPO_TOKEN nor CM_EXPO_TOKEN is set"
-            exit 1
-          fi
-          
-          TOKEN_LENGTH=${#TOKEN_TO_USE}
-          echo "Token length: $TOKEN_LENGTH"
-          echo "First character: ${TOKEN_TO_USE:0:1}"
-          echo "Last character: ${TOKEN_TO_USE: -1}"
-          
-          if [ $TOKEN_LENGTH -ne 40 ]; then
-            echo "WARNING: Token length ($TOKEN_LENGTH) is not the expected 40 characters"
-            echo "This suggests the token might not be set correctly in Codemagic"
             exit 1
           fi
           
@@ -75,7 +53,8 @@ workflows:
       - name: Build iOS app
         script: |
           echo "Starting iOS build..."
-          eas build --platform ios --profile development --non-interactive --json
+          # Use Expo's managed credentials
+          eas build --platform ios --profile development --non-interactive --json --local
           
     artifacts:
       - "*.ipa"
