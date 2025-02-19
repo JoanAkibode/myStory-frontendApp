@@ -5,7 +5,7 @@ workflows:
     instance_type: mac_mini_m1
     environment:
       groups:
-        - ENV-VAR  # This group only needs EXPO_TOKEN
+        - ENV-VAR  # This group needs EXPO_TOKEN, EXPO_APPLE_TEAM_ID
       node: latest
     triggering:
       events:
@@ -26,10 +26,6 @@ workflows:
           # Install EAS CLI
           echo "Installing EAS CLI..."
           npm install -g eas-cli
-          
-          # Debug: Print EAS CLI version
-          echo "EAS CLI version:"
-          eas --version
           
           # Verify EXPO_TOKEN without exposing it
           if [ -n "$EXPO_TOKEN" ]; then
@@ -53,7 +49,6 @@ workflows:
       - name: Build iOS app
         script: |
           echo "Starting iOS build..."
-          # Use Expo's managed credentials
           eas build --platform ios --profile development --non-interactive --json --local
           
     artifacts:
