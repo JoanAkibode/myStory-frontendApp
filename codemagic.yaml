@@ -36,8 +36,10 @@ workflows:
             exit 1
           fi
           
-          # Login to EAS
-          eas login --token "$TOKEN_TO_USE"
+          # Login to EAS - using environment variable directly
+          export EXPO_TOKEN="$TOKEN_TO_USE"
+          echo "Logging in to EAS..."
+          eas login
           
       - name: Build iOS app
         script: |
