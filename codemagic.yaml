@@ -7,7 +7,7 @@ workflows:
       app_store_connect: codemagic
     environment:
       ios_signing:
-        distribution_type: app_store
+        distribution_type: development
         bundle_identifier: com.joanakibode.storycal
       vars:
         XCODE_WORKSPACE: "StoryCal.xcworkspace" # Your Xcode workspace name
@@ -31,19 +31,14 @@ workflows:
           keychain initialize
       - name: Fetch signing files
         script: |
-          app-store-connect fetch-signing-files "com.joanakibode.storycal" --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files "com.joanakibode.storycal" --type IOS_APP_DEVELOPMENT --create
       - name: Add certificates to keychain
         script: |
           keychain add-certificates
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
-      - name: Increment build number
-        script: |
-          cd $CM_BUILD_DIR/ios
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID" || echo "0")
-          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
-      - name: Build ipa for distribution
+      - name: Build ipa for development
         script: |
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
@@ -60,10 +55,3 @@ workflows:
         notify:
           success: true
           failure: true
-      app_store_connect:
-        auth: integration
-        
-        # Configuration related to TestFlight
-        submit_to_testflight: true
-        beta_groups: # Add your beta tester groups here
-          - StoryCal Testers
