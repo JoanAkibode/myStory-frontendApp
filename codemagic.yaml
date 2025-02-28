@@ -9,7 +9,7 @@ workflows:
       vars:
         BUNDLE_ID: "com.joanakibode.mystory"
       node: latest
-      xcode: 14.2
+      xcode: latest
       cocoapods: default
     triggering:
       events:
