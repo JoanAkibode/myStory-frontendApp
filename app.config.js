@@ -2,10 +2,10 @@ const ENV = process.env.NODE_ENV || 'development';
 
 export default {
     expo: {
-        name: "MyStory",
-        slug: "mystory",
+        name: "StoryCal",
+        slug: "storycal",
         version: "1.0.0",
-        scheme: "mystory",
+        scheme: "storycal",
         owner: "supermegajojo",
         // newArchEnabled: true,  // Temporarily disabled for testing
         icon: "./assets/icon.png",
@@ -16,13 +16,13 @@ export default {
         },
         ios: {
             supportsTablet: true,
-            bundleIdentifier: "com.joanakibode.mystory",
+            bundleIdentifier: "com.joanakibode.storycal",
             config: {
                 usesNonExemptEncryption: false
             }
         },
         android: {
-            package: "com.joanakibode.mystory",
+            package: "com.joanakibode.storycal",
             adaptiveIcon: {
                 foregroundImage: "./assets/adaptive-icon.png",
                 backgroundColor: "#ffffff"

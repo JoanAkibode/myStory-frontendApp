@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MyStory",
-    "slug": "mystory",
+    "name": "StoryCal",
+    "slug": "storycal",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,20 +16,20 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.joanakibode.mystory"
+      "bundleIdentifier": "com.joanakibode.storycal"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.joanakibode.mystory",
+      "package": "com.joanakibode.storycal",
       "permissions": [
         "NOTIFICATIONS"
       ],
       "versionCode": 1
     },
-    "scheme": "mystory",
+    "scheme": "storycal",
     "extra": {
       "eas": {
         "projectId": "0f8c6544-565a-49f0-aa9c-f9890a56c009"

@@ -2,50 +2,43 @@ workflows:
   react-native-ios:
     name: React Native iOS
     max_build_duration: 120
-    instance_type: mac_mini_m1
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic
     environment:
-      groups:
-        - ENV-VAR  # Contains EXPO_TOKEN
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.joanakibode.storycal
       vars:
-        BUNDLE_ID: "com.joanakibode.mystory"
-      node: latest
+        XCODE_WORKSPACE: "StoryCal.xcworkspace" # Your Xcode workspace name
+        XCODE_SCHEME: "StoryCal" # Your Xcode scheme name
+        APP_ID: 6451234567 # Replace with your actual App ID from App Store Connect
+      node: v19.7.0
       xcode: latest
       cocoapods: default
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
     scripts:
       - name: Install npm dependencies
         script: |
           npm install --legacy-peer-deps
-          npm install -g eas-cli
-          
-      - name: Set up EAS
+      - name: Prebuild Expo app
         script: |
-          # Verify and use EXPO_TOKEN
-          if [ -n "$EXPO_TOKEN" ]; then
-            TOKEN_TO_USE="$EXPO_TOKEN"
-          elif [ -n "$CM_EXPO_TOKEN" ]; then
-            TOKEN_TO_USE="$CM_EXPO_TOKEN"
-            echo "Using CM_EXPO_TOKEN instead of EXPO_TOKEN"
-          else
-            echo "Error: Neither EXPO_TOKEN nor CM_EXPO_TOKEN is set"
-            exit 1
-          fi
-          
-          # Login to EAS - using environment variable directly
-          export EXPO_TOKEN="$TOKEN_TO_USE"
-          echo "Logging in to EAS..."
-          eas login
-          
-      - name: Build iOS app
+          npx expo prebuild --platform ios
+      - name: Install CocoaPods dependencies
         script: |
-          # Build using EAS
-          eas build --platform ios --profile development --non-interactive
-          
+          cd ios && pod install
+      - name: Set up code signing settings on Xcode project
+        script: |
+          xcode-project use-profiles --warn-only
+      - name: Increment build number
+        script: |
+          cd $CM_BUILD_DIR/ios
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID" || echo "0")
+          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+      - name: Build ipa for distribution
+        script: |
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -58,3 +51,10 @@ workflows:
         notify:
           success: true
           failure: true
+      app_store_connect:
+        auth: integration
+        
+        # Configuration related to TestFlight
+        submit_to_testflight: true
+        beta_groups: # Add your beta tester groups here
+          - StoryCal Testers
