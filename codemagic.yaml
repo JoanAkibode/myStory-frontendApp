@@ -1,12 +1,16 @@
 workflows:
-  expo-ios:
-    name: Expo iOS Build
-    max_build_duration: 60
+  react-native-ios:
+    name: React Native iOS
+    max_build_duration: 120
     instance_type: mac_mini_m1
     environment:
       groups:
-        - ENV-VAR  # This group needs EXPO_TOKEN
+        - ENV-VAR  # Contains EXPO_TOKEN
+      vars:
+        BUNDLE_ID: "com.joanakibode.mystory"
       node: latest
+      xcode: 14.2
+      cocoapods: default
     triggering:
       events:
         - push
@@ -14,20 +18,14 @@ workflows:
         - pattern: main
           include: true
     scripts:
-      - name: Install dependencies
+      - name: Install npm dependencies
         script: |
-          # Clean install to avoid cache issues
-          rm -rf node_modules
-          # Install dependencies with legacy peer deps to handle warnings
           npm install --legacy-peer-deps
+          npm install -g eas-cli
           
       - name: Set up EAS
         script: |
-          # Install EAS CLI
-          echo "Installing EAS CLI..."
-          npm install -g eas-cli
-          
-          # Verify EXPO_TOKEN without exposing it
+          # Verify and use EXPO_TOKEN
           if [ -n "$EXPO_TOKEN" ]; then
             TOKEN_TO_USE="$EXPO_TOKEN"
           elif [ -n "$CM_EXPO_TOKEN" ]; then
@@ -38,23 +36,23 @@ workflows:
             exit 1
           fi
           
-          # Attempt to login with token
-          echo "Logging in to EAS..."
+          # Login to EAS
           eas login --token "$TOKEN_TO_USE"
-          
-          # Verify login status
-          echo "Verifying EAS login status..."
-          eas whoami
           
       - name: Build iOS app
         script: |
-          echo "Starting iOS build..."
-          eas build --platform ios --profile development --non-interactive --auto-submit
+          # Build using EAS
+          eas build --platform ios --profile development --non-interactive
           
     artifacts:
-      - "*.ipa"
-      - "*.app"
-      - "build/ios/ipa/*.ipa"
-      - "/tmp/xcodebuild_logs/*.log"
-      - "$HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app"
-      - "$HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM"
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      email:
+        recipients:
+          - joanakibode@gmail.com
+        notify:
+          success: true
+          failure: true
