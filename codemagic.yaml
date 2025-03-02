@@ -31,7 +31,14 @@ workflows:
           keychain initialize
       - name: Fetch signing files
         script: |
-          app-store-connect fetch-signing-files "com.joanakibode.storycal" --type IOS_APP_DEVELOPMENT --create
+          # Print available devices to verify they're registered
+          app-store-connect list-devices
+          
+          # Explicitly create the app ID if it doesn't exist
+          app-store-connect create-app-id "com.joanakibode.storycal" --name "StoryCal"
+          
+          # Fetch or create signing files with verbose output
+          app-store-connect fetch-signing-files "com.joanakibode.storycal" --type IOS_APP_DEVELOPMENT --create --verbose
       - name: Add certificates to keychain
         script: |
           keychain add-certificates
