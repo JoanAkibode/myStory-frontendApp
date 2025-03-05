@@ -7,7 +7,7 @@ workflows:
       app_store_connect: codemagic
     environment:
       ios_signing:
-        distribution_type: ad-hoc
+        distribution_type: development
         bundle_identifier: com.joanakibode.storycal
       vars:
         XCODE_WORKSPACE: "StoryCal.xcworkspace" # Your Xcode workspace name
