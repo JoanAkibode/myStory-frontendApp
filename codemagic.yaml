@@ -7,7 +7,7 @@ workflows:
       app_store_connect: codemagic
     environment:
       ios_signing:
-        distribution_type: development
+        distribution_type: ad-hoc
         bundle_identifier: com.joanakibode.storycal
       vars:
         XCODE_WORKSPACE: "StoryCal.xcworkspace" # Your Xcode workspace name
@@ -38,18 +38,36 @@ workflows:
           app-store-connect create-app-id "com.joanakibode.storycal" --name "StoryCal"
           
           # Fetch or create signing files with verbose output
-          app-store-connect fetch-signing-files "com.joanakibode.storycal" --type IOS_APP_DEVELOPMENT --create --verbose
+          app-store-connect fetch-signing-files "com.joanakibode.storycal" --type IOS_APP_ADHOC --create --verbose
       - name: Add certificates to keychain
         script: |
           keychain add-certificates
       - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles
-      - name: Build ipa for development
+      - name: Create exportOptions.plist
+        script: |
+          # Create exportOptions.plist file for ad-hoc distribution
+          cat > "$CM_BUILD_DIR/ios/exportOptions.plist" << EOL
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>ad-hoc</string>
+              <key>teamID</key>
+              <string>$APPLE_TEAM_ID</string>
+              <key>compileBitcode</key>
+              <false/>
+          </dict>
+          </plist>
+          EOL
+      - name: Build ipa for ad-hoc distribution
         script: |
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+            --scheme "$XCODE_SCHEME" \
+            --export-options-plist-path "$CM_BUILD_DIR/ios/exportOptions.plist"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
@@ -58,7 +76,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - joanakibode@gmail.com
+          - jakibode@outlook.fr
         notify:
           success: true
           failure: true
