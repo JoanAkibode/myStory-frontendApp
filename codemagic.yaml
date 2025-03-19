@@ -4,18 +4,13 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: MagicCode
+      app_store_connect: MagicCode  # Uses automatic signing
+
     environment:
       ios_signing:
-        distribution_type: development
+        distribution_type: development  # Set to "app_store" for production
         bundle_identifier: com.joanakibode.storycal
-      vars:
-        XCODE_WORKSPACE: "StoryCal.xcworkspace" # Your Xcode workspace name
-        XCODE_SCHEME: "StoryCal" # Your Xcode scheme name
-        APP_ID: 6742653857 # Replace with your actual App ID from App Store Connect
-      node: v19.7.0
-      xcode: latest
-      cocoapods: default
+
     scripts:
       - name: Install npm dependencies
         script: |
@@ -26,53 +21,14 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios && pod install
-      - name: Set up keychain to be used for codesigning
-        script: |
-          keychain initialize
-      - name: Fetch signing files
-        script: |
-          # Print available devices to verify they're registered
-          app-store-connect list-devices
-          
-          # Explicitly create the app ID if it doesn't exist
-          app-store-connect create-app-id "com.joanakibode.storycal" --name "StoryCal"
-          
-          # Fetch or create signing files with verbose output
-          app-store-connect fetch-signing-files "com.joanakibode.storycal" --type IOS_APP_ADHOC --create --verbose
-      - name: Add certificates to keychain
-        script: |
-          keychain add-certificates
-      - name: Set up code signing settings on Xcode project
+      - name: Set up automatic signing
         script: |
           xcode-project use-profiles
-      - name: Create exportOptions.plist
+      - name: Build iOS App
         script: |
-          # Create exportOptions.plist file for ad-hoc distribution
-          cat > "$CM_BUILD_DIR/ios/exportOptions.plist" << EOL
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>ad-hoc</string>
-              <key>teamID</key>
-              <string>$APPLE_TEAM_ID</string>
-              <key>compileBitcode</key>
-              <false/>
-          </dict>
-          </plist>
-          EOL
-      - name: Build ipa for ad-hoc distribution
-        script: |
-          xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --export-options-plist-path "$CM_BUILD_DIR/ios/exportOptions.plist"
+          xcode-project build-ipa --workspace "ios/StoryCal.xcworkspace" --scheme "StoryCal"
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
-      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
     publishing:
       email:
         recipients:
