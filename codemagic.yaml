@@ -14,24 +14,36 @@ workflows:
         XCODE_WORKSPACE: "StoryCal.xcworkspace"
         XCODE_SCHEME: "StoryCal"
         APP_ID: 6742653857 # Your App ID from App Store Connect
-      node: 18.17.1
+      node: 18.19.0  # 🔥 Upgrade Node.js to fix metro-source-map error
       xcode: latest
       cocoapods: default
 
     scripts:
-      - name: Install dependencies
+      - name: Remove conflicting package-lock.json
+        script: |
+          rm -f package-lock.json
+      - name: Install dependencies, Expo CLI and eject app
         script: |
           yarn install
-      - name: Prebuild Expo app
+          yarn global add expo-cli
+          expo prebuild --platform ios  # Replaces `expo eject`
+      - name: Set Info.plist values
         script: |
-          npx expo prebuild --platform ios
+          PLIST=$CM_BUILD_DIR/$XCODE_SCHEME/Info.plist
+          PLIST_BUDDY=/usr/libexec/PlistBuddy
+          $PLIST_BUDDY -c "Add :ITSAppUsesNonExemptEncryption bool false" $PLIST
       - name: Install CocoaPods dependencies
         script: |
           cd ios && pod install --verbose --repo-update
-      - name: Set up automatic signing
+      - name: Increment build number
+        script: |
+          cd $CM_BUILD_DIR/ios
+          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_ID")
+          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+      - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles --warn-only
-      - name: Build iOS App
+      - name: Build ipa for distribution
         script: |
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
