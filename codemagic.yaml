@@ -12,6 +12,9 @@ workflows:
         bundle_identifier: com.joanakibode.storycal
 
     scripts:
+      - name: Clean Xcode Derived Data
+        script: |
+          rm -rf ~/Library/Developer/Xcode/DerivedData
       - name: Install npm dependencies
         script: |
           npm install --legacy-peer-deps
@@ -20,13 +23,17 @@ workflows:
           npx expo prebuild --platform ios
       - name: Install CocoaPods dependencies
         script: |
-          cd ios && pod install
+          cd ios && pod install --verbose --repo-update
       - name: Set up automatic signing
         script: |
           xcode-project use-profiles
       - name: Build iOS App
         script: |
-          xcode-project build-ipa --workspace "ios/StoryCal.xcworkspace" --scheme "StoryCal"
+          xcode-project build-ipa \
+            --workspace "ios/StoryCal.xcworkspace" \
+            --scheme "StoryCal" \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=286X5G8B98
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
