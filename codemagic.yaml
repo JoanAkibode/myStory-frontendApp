@@ -14,7 +14,7 @@ workflows:
         XCODE_WORKSPACE: "StoryCal.xcworkspace"
         XCODE_SCHEME: "StoryCal"
         APP_ID: 6742653857 # Your App ID from App Store Connect
-      node: 16.14.2
+      node: 18.17.1
       xcode: latest
       cocoapods: default
 
