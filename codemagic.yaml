@@ -45,9 +45,20 @@ workflows:
           xcode-project use-profiles --warn-only
       - name: Build ipa for distribution
         script: |
-          xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME"
+          xcode-project use-profiles
+          xcodebuild archive \
+            -workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -archivePath $HOME/build/StoryCal.xcarchive \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=286X5G8B98 | xcpretty
+          xcodebuild -exportArchive \
+            -archivePath $HOME/build/StoryCal.xcarchive \
+            -exportOptionsPlist "ios/exportOptions.plist" \
+            -exportPath $HOME/build/ios \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=286X5G8B98 | xcpretty
+
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
