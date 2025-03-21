@@ -14,6 +14,7 @@ workflows:
         XCODE_WORKSPACE: "StoryCal.xcworkspace"
         XCODE_SCHEME: "StoryCal"
         APP_ID: 6742653857 # Your App ID from App Store Connect
+        EXPO_TOKEN: $EXPO_TOKEN
       node: 18.19.0  # 🔥 Upgrade Node.js to fix metro-source-map error
       xcode: latest
       cocoapods: default
