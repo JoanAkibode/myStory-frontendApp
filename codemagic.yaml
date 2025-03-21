@@ -3,37 +3,39 @@ workflows:
     name: React Native iOS
     max_build_duration: 120
     instance_type: mac_mini_m2
+
     integrations:
-      app_store_connect: Codemagic_API_Key  # Uses automatic signing
+      app_store_connect: Codemagic_API_Key  # Apple API key set in Codemagic UI
 
     environment:
       ios_signing:
-        distribution_type: development  # Change to "app_store" for production
+        distribution_type: app_store  # ✅ For TestFlight
         bundle_identifier: com.joanakibode.storycal
       vars:
         XCODE_WORKSPACE: "StoryCal.xcworkspace"
         XCODE_SCHEME: "StoryCal"
-        APP_ID: 6742653857 # Your App ID from App Store Connect
-        EXPO_TOKEN: $EXPO_TOKEN
-      node: 18.19.0  # 🔥 Upgrade Node.js to fix metro-source-map error
+        APP_ID: 6742653857  # From App Store Connect
+        EXPO_TOKEN: $EXPO_TOKEN  # Optional, for future EAS-related features
+      node: 18.19.0
       xcode: latest
       cocoapods: default
 
     scripts:
-      - name: Remove conflicting package-lock.json
+      - name: Remove conflicting lockfile
         script: |
           rm -f package-lock.json
+
       - name: Install dependencies, Expo CLI and eject app
         script: |
           yarn install
           yarn global add expo-cli
-          expo prebuild --platform ios  # Replaces `expo eject`
+          expo prebuild --platform ios  # replaces expo eject
+
       - name: Set Info.plist values
         script: |
           PLIST=$CM_BUILD_DIR/ios/StoryCal/Info.plist
           PLIST_BUDDY=/usr/libexec/PlistBuddy
 
-          # Check if the key exists before trying to add it
           if ! $PLIST_BUDDY -c "Print :ITSAppUsesNonExemptEncryption" "$PLIST" > /dev/null 2>&1; then
             $PLIST_BUDDY -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
           else
@@ -43,14 +45,21 @@ workflows:
       - name: Install CocoaPods dependencies
         script: |
           cd ios && pod install --verbose --repo-update
-      - name: Set up code signing settings on Xcode project
+
+      - name: Set up automatic signing
         script: |
           xcode-project use-profiles --warn-only
+
       - name: Increment build number
         script: |
           cd $CM_BUILD_DIR/ios
           LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_ID")
+          if [ -z "$LATEST_BUILD_NUMBER" ]; then
+            echo "No build found on App Store Connect. Starting from 1."
+            LATEST_BUILD_NUMBER=1
+          fi
           agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+
       - name: Create exportOptions.plist
         script: |
           cat > ios/exportOptions.plist <<EOF
@@ -59,7 +68,7 @@ workflows:
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>development</string>
+              <string>app-store</string>
               <key>teamID</key>
               <string>286X5G8B98</string>
               <key>uploadBitcode</key>
@@ -69,6 +78,7 @@ workflows:
           </dict>
           </plist>
           EOF
+
       - name: Build ipa for distribution
         script: |
           xcode-project build-ipa \
@@ -81,12 +91,13 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
         beta_groups:
-          - Internal Testers  # Or specify your group name
+          - Internal Testers
       email:
         recipients:
           - jakibode@outlook.fr
