@@ -30,16 +30,16 @@ workflows:
           expo prebuild --platform ios  # Replaces `expo eject`
       - name: Set Info.plist values
         script: |
-          PLIST=$CM_BUILD_DIR/$XCODE_SCHEME/Info.plist
+          PLIST=$CM_BUILD_DIR/ios/$XCODE_SCHEME/Info.plist
           PLIST_BUDDY=/usr/libexec/PlistBuddy
           $PLIST_BUDDY -c "Add :ITSAppUsesNonExemptEncryption bool false" $PLIST
       - name: Install CocoaPods dependencies
         script: |
           cd ios && pod install --verbose --repo-update
-      - name: Set up code signing settings on Xcode project  # 🔄 MOVE THIS UP
+      - name: Set up code signing settings on Xcode project
         script: |
           xcode-project use-profiles --warn-only
-      - name: Increment build number  # 🔄 NOW RUNS AFTER CODE SIGNING
+      - name: Increment build number
         script: |
           cd $CM_BUILD_DIR/ios
           LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_ID")
@@ -52,7 +52,7 @@ workflows:
           <plist version="1.0">
           <dict>
               <key>method</key>
-              <string>app-store</string>
+              <string>development</string>
               <key>teamID</key>
               <string>286X5G8B98</string>
               <key>uploadBitcode</key>
@@ -64,19 +64,10 @@ workflows:
           EOF
       - name: Build ipa for distribution
         script: |
-          xcode-project use-profiles
-          xcodebuild archive \
-            -workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
-            -scheme "$XCODE_SCHEME" \
-            -archivePath $HOME/build/StoryCal.xcarchive \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=286X5G8B98 | xcpretty
-          xcodebuild -exportArchive \
-            -archivePath $HOME/build/StoryCal.xcarchive \
-            -exportOptionsPlist "ios/exportOptions.plist" \
-            -exportPath $CM_BUILD_DIR/build/ios/ipa \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=286X5G8B98 | xcpretty
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME" \
+            --export-options-plist ios/exportOptions.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
