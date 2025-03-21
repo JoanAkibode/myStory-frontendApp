@@ -30,9 +30,16 @@ workflows:
           expo prebuild --platform ios  # Replaces `expo eject`
       - name: Set Info.plist values
         script: |
-          PLIST=$CM_BUILD_DIR/ios/$XCODE_SCHEME/Info.plist
+          PLIST=$CM_BUILD_DIR/ios/StoryCal/Info.plist
           PLIST_BUDDY=/usr/libexec/PlistBuddy
-          $PLIST_BUDDY -c "Add :ITSAppUsesNonExemptEncryption bool false" $PLIST
+
+          # Check if the key exists before trying to add it
+          if ! $PLIST_BUDDY -c "Print :ITSAppUsesNonExemptEncryption" "$PLIST" > /dev/null 2>&1; then
+            $PLIST_BUDDY -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
+          else
+            echo "ITSAppUsesNonExemptEncryption already exists in Info.plist"
+          fi
+
       - name: Install CocoaPods dependencies
         script: |
           cd ios && pod install --verbose --repo-update
