@@ -9,7 +9,7 @@ workflows:
 
     environment:
       ios_signing:
-        distribution_type: app_store  # ✅ For TestFlight
+        distribution_type: development    # ✅ For TestFlight
         bundle_identifier: com.joanakibode.storycal
       vars:
         XCODE_WORKSPACE: "StoryCal.xcworkspace"
@@ -93,11 +93,11 @@ workflows:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
     publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
-        beta_groups:
-          - Internal Testers
+      # app_store_connect:
+      #   auth: integration
+      #   submit_to_testflight: true
+      #   beta_groups:
+      #     - Internal Testers
       email:
         recipients:
           - jakibode@outlook.fr
