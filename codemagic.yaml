@@ -79,13 +79,24 @@ workflows:
           </plist>
           EOF
 
-      - name: Build ipa for distribution
-        script: |
-          xcode-project build-ipa \
-            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
-            --scheme "$XCODE_SCHEME" \
-            --export-options-plist ios/exportOptions.plist
 
+
+      - name: Build ipa for distribution
+          script: |
+            xcodebuild archive \
+              -workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+              -scheme "$XCODE_SCHEME" \
+              -archivePath $CM_BUILD_DIR/build/StoryCal.xcarchive \
+              CODE_SIGN_STYLE=Automatic \
+              DEVELOPMENT_TEAM=286X5G8B98 \
+              | xcpretty
+        
+            xcodebuild -exportArchive \
+              -archivePath $CM_BUILD_DIR/build/StoryCal.xcarchive \
+              -exportOptionsPlist ios/exportOptions.plist \
+              -exportPath $CM_BUILD_DIR/build/ios/ipa \
+              | xcpretty
+              
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
