@@ -79,9 +79,8 @@ workflows:
           
           echo "🔍 Checking CocoaPods version..."
           pod --version
-          
           echo "🔄 Running pod install..."
-          pod install --verbose --repo-update
+          pod install --verbose --repo-update                   
           
           echo "✅ Pod installation completed"
           echo "Checking generated files:"
@@ -141,33 +140,37 @@ workflows:
         script: |
           echo "🏗️ Starting build process..."
           
-          # Set up build directories
+          # Set up build directories and logs
           BUILD_DIR="$CM_BUILD_DIR/build"
           ARCHIVE_PATH="$BUILD_DIR/StoryCal.xcarchive"
           IPA_PATH="$BUILD_DIR/ios/ipa"
+          LOG_DIR="/tmp/xcodebuild_logs"
           
           echo "📁 Setting up build directories..."
           echo "Build directory: $BUILD_DIR"
           echo "Archive path: $ARCHIVE_PATH"
           echo "IPA path: $IPA_PATH"
+          echo "Log directory: $LOG_DIR"
           
           # Create necessary directories
           echo "📂 Creating directories..."
           mkdir -p "$BUILD_DIR"
           mkdir -p "$IPA_PATH"
+          mkdir -p "$LOG_DIR"
           
           echo "Current directory: $(pwd)"
           echo "Moving to ios directory..."
           cd $CM_BUILD_DIR/ios
           
           echo "🧹 Cleaning previous builds..."
-          xcodebuild clean -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME"
+          xcodebuild clean -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME" > "$LOG_DIR/clean.log" 2>&1
           
           echo "📦 Starting archive process..."
           echo "Workspace: $XCODE_WORKSPACE"
           echo "Scheme: $XCODE_SCHEME"
           echo "Archive path: $ARCHIVE_PATH"
           
+          # Build with detailed logging
           xcodebuild archive \
             -workspace "$XCODE_WORKSPACE" \
             -scheme "$XCODE_SCHEME" \
@@ -185,13 +188,30 @@ workflows:
             CODE_SIGNING_REQUIRED=YES \
             CODE_SIGNING_ALLOWED=YES \
             PROVISIONING_PROFILE_SPECIFIER="SoryCal profile V2" \
-            | xcpretty
+            OTHER_CFLAGS="-fembed-bitcode=NO" \
+            OTHER_LDFLAGS="-fembed-bitcode=NO" \
+            > "$LOG_DIR/archive.log" 2>&1
+          
+          ARCHIVE_STATUS=$?
           
           echo "🔍 Checking archive creation..."
+          if [ $ARCHIVE_STATUS -ne 0 ]; then
+            echo "❌ Error: Archive process failed with status $ARCHIVE_STATUS"
+            echo "📋 Build logs:"
+            cat "$LOG_DIR/archive.log"
+            echo "📋 Clean logs:"
+            cat "$LOG_DIR/clean.log"
+            echo "📁 Checking build directory contents:"
+            ls -la "$BUILD_DIR"
+            exit 1
+          fi
+          
           if [ ! -d "$ARCHIVE_PATH" ]; then
             echo "❌ Error: Archive was not created at $ARCHIVE_PATH"
-            echo "📋 Checking build logs for more details..."
-            cat /tmp/xcodebuild_logs/*.log
+            echo "📋 Build logs:"
+            cat "$LOG_DIR/archive.log"
+            echo "📋 Clean logs:"
+            cat "$LOG_DIR/clean.log"
             echo "📁 Checking build directory contents:"
             ls -la "$BUILD_DIR"
             exit 1
@@ -210,13 +230,24 @@ workflows:
             -archivePath "$ARCHIVE_PATH" \
             -exportOptionsPlist exportOptions.plist \
             -exportPath "$IPA_PATH" \
-            | xcpretty
+            > "$LOG_DIR/export.log" 2>&1
+          
+          EXPORT_STATUS=$?
           
           echo "🔍 Checking IPA creation..."
+          if [ $EXPORT_STATUS -ne 0 ]; then
+            echo "❌ Error: Export process failed with status $EXPORT_STATUS"
+            echo "📋 Export logs:"
+            cat "$LOG_DIR/export.log"
+            echo "📁 Checking export directory contents:"
+            ls -la "$IPA_PATH"
+            exit 1
+          fi
+          
           if [ ! -d "$IPA_PATH" ] || [ ! -f "$IPA_PATH"/*.ipa ]; then
             echo "❌ Error: IPA was not created in $IPA_PATH"
-            echo "📋 Checking build logs for more details..."
-            cat /tmp/xcodebuild_logs/*.log
+            echo "📋 Export logs:"
+            cat "$LOG_DIR/export.log"
             echo "📁 Checking export directory contents:"
             ls -la "$IPA_PATH"
             exit 1
