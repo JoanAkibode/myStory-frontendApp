@@ -73,27 +73,57 @@ workflows:
 
       - name: Build ipa for distribution
         script: |
-          # Clean the build folder
+          # Set up build directories
+          BUILD_DIR="$CM_BUILD_DIR/build"
+          ARCHIVE_PATH="$BUILD_DIR/StoryCal.xcarchive"
+          IPA_PATH="$BUILD_DIR/ios/ipa"
+          
+          # Create necessary directories
+          mkdir -p "$BUILD_DIR"
+          mkdir -p "$IPA_PATH"
+          
+          # Clean previous builds
           cd $CM_BUILD_DIR/ios
           xcodebuild clean -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME"
           
           # Archive the app
+          echo "Starting archive process..."
           xcodebuild archive \
             -workspace "$XCODE_WORKSPACE" \
             -scheme "$XCODE_SCHEME" \
-            -archivePath $CM_BUILD_DIR/build/StoryCal.xcarchive \
+            -archivePath "$ARCHIVE_PATH" \
             CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM=286X5G8B98 \
             COMPILER_INDEX_STORE_ENABLE=NO \
             -destination "generic/platform=iOS" \
+            SKIP_INSTALL=NO \
+            BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
             | xcpretty
           
+          # Check if archive was created
+          if [ ! -d "$ARCHIVE_PATH" ]; then
+            echo "Error: Archive was not created at $ARCHIVE_PATH"
+            exit 1
+          fi
+          
+          echo "Archive created successfully at $ARCHIVE_PATH"
+          
           # Export the archive
+          echo "Starting export process..."
           xcodebuild -exportArchive \
-            -archivePath $CM_BUILD_DIR/build/StoryCal.xcarchive \
+            -archivePath "$ARCHIVE_PATH" \
             -exportOptionsPlist exportOptions.plist \
-            -exportPath $CM_BUILD_DIR/build/ios/ipa \
+            -exportPath "$IPA_PATH" \
             | xcpretty
+          
+          # Check if IPA was created
+          if [ ! -d "$IPA_PATH" ] || [ ! -f "$IPA_PATH"/*.ipa ]; then
+            echo "Error: IPA was not created in $IPA_PATH"
+            exit 1
+          fi
+          
+          echo "Build completed successfully"
+          ls -la "$IPA_PATH"
               
     artifacts:
       - build/ios/ipa/*.ipa
