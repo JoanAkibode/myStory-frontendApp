@@ -52,16 +52,6 @@ workflows:
         script: |
           xcode-project use-profiles --warn-only
 
-      - name: Increment build number
-        script: |
-          cd $CM_BUILD_DIR/ios
-          LATEST_BUILD_NUMBER=$(app-store-connect get-latest-app-store-build-number "$APP_ID")
-          if [ -z "$LATEST_BUILD_NUMBER" ]; then
-            echo "No build found on App Store Connect. Starting from 1."
-            LATEST_BUILD_NUMBER=1
-          fi
-          agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
-
       - name: Create exportOptions.plist
         script: |
           cat > ios/exportOptions.plist <<EOF
@@ -95,6 +85,7 @@ workflows:
             CODE_SIGN_STYLE=Automatic \
             DEVELOPMENT_TEAM=286X5G8B98 \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            -destination "generic/platform=iOS" \
             | xcpretty
           
           # Export the archive
@@ -111,11 +102,6 @@ workflows:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
 
     publishing:
-      # app_store_connect:
-      #   auth: integration
-      #   submit_to_testflight: true
-      #   beta_groups:
-      #     - Internal Testers
       email:
         recipients:
           - jakibode@outlook.fr
