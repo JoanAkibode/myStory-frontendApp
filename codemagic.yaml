@@ -25,35 +25,92 @@ workflows:
     scripts:
       - name: Remove conflicting lockfile
         script: |
+          echo "🔍 Checking for package-lock.json..."
+          ls -la package-lock.json || true
+          echo "🗑️ Removing package-lock.json if it exists..."
           rm -f package-lock.json
+          echo "✅ Done removing package-lock.json"
 
       - name: Install dependencies, Expo CLI and eject app
         script: |
+          echo "📦 Starting dependency installation..."
+          echo "Current directory: $(pwd)"
+          echo "Node version: $(node -v)"
+          echo "Yarn version: $(yarn -v)"
+          
+          echo "🔄 Installing dependencies..."
           yarn install
+          
+          echo "📱 Installing Expo CLI..."
           yarn global add expo-cli
-          expo prebuild --platform ios  # replaces expo eject
+          
+          echo "🏗️ Running Expo prebuild..."
+          expo prebuild --platform ios
+          
+          echo "✅ Prebuild completed"
+          echo "Checking generated files:"
+          ls -la ios/
 
       - name: Set Info.plist values
         script: |
+          echo "📝 Setting up Info.plist..."
           PLIST=$CM_BUILD_DIR/ios/StoryCal/Info.plist
           PLIST_BUDDY=/usr/libexec/PlistBuddy
-
+          
+          echo "Current Info.plist location: $PLIST"
+          echo "Info.plist exists: $(test -f "$PLIST" && echo "Yes" || echo "No")"
+          
+          echo "🔍 Checking current ITSAppUsesNonExemptEncryption value..."
           if ! $PLIST_BUDDY -c "Print :ITSAppUsesNonExemptEncryption" "$PLIST" > /dev/null 2>&1; then
+            echo "➕ Adding ITSAppUsesNonExemptEncryption..."
             $PLIST_BUDDY -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
+            echo "✅ Added successfully"
           else
-            echo "ITSAppUsesNonExemptEncryption already exists in Info.plist"
+            echo "ℹ️ ITSAppUsesNonExemptEncryption already exists"
           fi
 
       - name: Install CocoaPods dependencies
         script: |
-          cd ios && pod install --verbose --repo-update
+          echo "📱 Installing CocoaPods dependencies..."
+          echo "Current directory: $(pwd)"
+          echo "Moving to ios directory..."
+          cd ios
+          echo "Podfile exists: $(test -f "Podfile" && echo "Yes" || echo "No")"
+          
+          echo "🔍 Checking CocoaPods version..."
+          pod --version
+          
+          echo "🔄 Running pod install..."
+          pod install --verbose --repo-update
+          
+          echo "✅ Pod installation completed"
+          echo "Checking generated files:"
+          ls -la Pods/
 
       - name: Set up automatic signing
         script: |
+          echo "🔐 Setting up code signing..."
+          
+          echo "📋 Checking available certificates..."
+          security find-identity -v -p codesigning
+          
+          echo "📋 Checking available provisioning profiles..."
+          echo "Provisioning profiles directory:"
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+          
+          echo "🔍 Checking keychain status..."
+          security list-keychains
+          
+          echo "⚙️ Configuring code signing..."
           xcode-project use-profiles --warn-only
+          
+          echo "✅ Code signing setup completed"
 
       - name: Create exportOptions.plist
         script: |
+          echo "📝 Creating exportOptions.plist..."
+          echo "Current directory: $(pwd)"
+          
           cat > ios/exportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -67,62 +124,106 @@ workflows:
               <false/>
               <key>uploadSymbols</key>
               <true/>
+              <key>provisioningProfiles</key>
+              <dict>
+                  <key>com.joanakibode.storycal</key>
+                  <string>SoryCal profile V2</string>
+              </dict>
           </dict>
           </plist>
           EOF
+          
+          echo "✅ exportOptions.plist created"
+          echo "Checking file contents:"
+          cat ios/exportOptions.plist
 
       - name: Build ipa for distribution
         script: |
+          echo "🏗️ Starting build process..."
+          
           # Set up build directories
           BUILD_DIR="$CM_BUILD_DIR/build"
           ARCHIVE_PATH="$BUILD_DIR/StoryCal.xcarchive"
           IPA_PATH="$BUILD_DIR/ios/ipa"
           
+          echo "📁 Setting up build directories..."
+          echo "Build directory: $BUILD_DIR"
+          echo "Archive path: $ARCHIVE_PATH"
+          echo "IPA path: $IPA_PATH"
+          
           # Create necessary directories
+          echo "📂 Creating directories..."
           mkdir -p "$BUILD_DIR"
           mkdir -p "$IPA_PATH"
           
-          # Clean previous builds
+          echo "Current directory: $(pwd)"
+          echo "Moving to ios directory..."
           cd $CM_BUILD_DIR/ios
+          
+          echo "🧹 Cleaning previous builds..."
           xcodebuild clean -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME"
           
-          # Archive the app
-          echo "Starting archive process..."
+          echo "📦 Starting archive process..."
+          echo "Workspace: $XCODE_WORKSPACE"
+          echo "Scheme: $XCODE_SCHEME"
+          echo "Archive path: $ARCHIVE_PATH"
+          
           xcodebuild archive \
             -workspace "$XCODE_WORKSPACE" \
             -scheme "$XCODE_SCHEME" \
             -archivePath "$ARCHIVE_PATH" \
-            CODE_SIGN_STYLE=Automatic \
+            CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM=286X5G8B98 \
             COMPILER_INDEX_STORE_ENABLE=NO \
             -destination "generic/platform=iOS" \
             SKIP_INSTALL=NO \
             BUILD_LIBRARY_FOR_DISTRIBUTION=YES \
+            ENABLE_BITCODE=NO \
+            ONLY_ACTIVE_ARCH=NO \
+            VALIDATE_WORKSPACE=YES \
+            CODE_SIGN_IDENTITY="iPhone Developer" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
+            PROVISIONING_PROFILE_SPECIFIER="SoryCal profile V2" \
             | xcpretty
           
-          # Check if archive was created
+          echo "🔍 Checking archive creation..."
           if [ ! -d "$ARCHIVE_PATH" ]; then
-            echo "Error: Archive was not created at $ARCHIVE_PATH"
+            echo "❌ Error: Archive was not created at $ARCHIVE_PATH"
+            echo "📋 Checking build logs for more details..."
+            cat /tmp/xcodebuild_logs/*.log
+            echo "📁 Checking build directory contents:"
+            ls -la "$BUILD_DIR"
             exit 1
           fi
           
-          echo "Archive created successfully at $ARCHIVE_PATH"
+          echo "✅ Archive created successfully at $ARCHIVE_PATH"
+          echo "📁 Archive contents:"
+          ls -la "$ARCHIVE_PATH"
           
-          # Export the archive
-          echo "Starting export process..."
+          echo "📦 Starting export process..."
+          echo "Archive path: $ARCHIVE_PATH"
+          echo "Export path: $IPA_PATH"
+          echo "Export options plist exists: $(test -f "exportOptions.plist" && echo "Yes" || echo "No")"
+          
           xcodebuild -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
             -exportOptionsPlist exportOptions.plist \
             -exportPath "$IPA_PATH" \
             | xcpretty
           
-          # Check if IPA was created
+          echo "🔍 Checking IPA creation..."
           if [ ! -d "$IPA_PATH" ] || [ ! -f "$IPA_PATH"/*.ipa ]; then
-            echo "Error: IPA was not created in $IPA_PATH"
+            echo "❌ Error: IPA was not created in $IPA_PATH"
+            echo "📋 Checking build logs for more details..."
+            cat /tmp/xcodebuild_logs/*.log
+            echo "📁 Checking export directory contents:"
+            ls -la "$IPA_PATH"
             exit 1
           fi
           
-          echo "Build completed successfully"
+          echo "✅ Build completed successfully"
+          echo "📁 Final IPA location:"
           ls -la "$IPA_PATH"
               
     artifacts:
