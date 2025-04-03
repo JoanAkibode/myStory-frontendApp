@@ -79,6 +79,22 @@ workflows:
           
           echo "🔍 Checking CocoaPods version..."
           pod --version
+          
+          echo "📝 Updating Podfile with code signing settings..."
+          cat >> Podfile <<EOF
+
+          post_install do |installer|
+            installer.pods_project.targets.each do |target|
+              target.build_configurations.each do |config|
+                config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
+                config.build_settings['CODE_SIGN_IDENTITY'] = '-'
+                config.build_settings['DEVELOPMENT_TEAM'] = ''
+                config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
+              end
+            end
+          end
+          EOF
+          
           echo "🔄 Running pod install..."
           pod install --verbose --repo-update                   
           
