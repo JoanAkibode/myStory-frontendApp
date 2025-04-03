@@ -93,6 +93,16 @@ workflows:
           echo "📋 Checking available certificates..."
           security find-identity -v -p codesigning
           
+          echo "📋 Checking certificate validity..."
+          CERT_NAME="iPhone Developer: Joan Akibode (35Y7GAM93U)"
+          CERT_SERIAL="97F1C9F7500CB8A6EAE08EC18EF29F23B5BB5160"
+          
+          echo "🔍 Validating certificate $CERT_NAME..."
+          security find-certificate -c "$CERT_NAME" -Z | grep "$CERT_SERIAL" || {
+            echo "❌ Error: Certificate validation failed"
+            exit 1
+          }
+          
           echo "📋 Checking available provisioning profiles..."
           echo "Provisioning profiles directory:"
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
@@ -184,12 +194,13 @@ workflows:
             ENABLE_BITCODE=NO \
             ONLY_ACTIVE_ARCH=NO \
             VALIDATE_WORKSPACE=YES \
-            CODE_SIGN_IDENTITY="iPhone Developer" \
+            CODE_SIGN_IDENTITY="iPhone Developer: Joan Akibode (35Y7GAM93U)" \
             CODE_SIGNING_REQUIRED=YES \
             CODE_SIGNING_ALLOWED=YES \
             OTHER_CFLAGS="-fembed-bitcode=NO" \
             OTHER_LDFLAGS="-fembed-bitcode=NO" \
             PROVISIONING_PROFILE_SPECIFIER_APP="SoryCal profile V2" \
+            CODE_SIGN_STYLE_PODS=Automatic \
             > "$LOG_DIR/archive.log" 2>&1
           
           ARCHIVE_STATUS=$?
