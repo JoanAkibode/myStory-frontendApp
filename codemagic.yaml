@@ -98,10 +98,14 @@ workflows:
           CERT_SERIAL="97F1C9F7500CB8A6EAE08EC18EF29F23B5BB5160"
           
           echo "🔍 Validating certificate $CERT_NAME..."
-          security find-certificate -c "$CERT_NAME" -Z | grep "$CERT_SERIAL" || {
+          if ! security find-certificate -c "$CERT_NAME" -Z | grep -q "$CERT_SERIAL"; then
             echo "❌ Error: Certificate validation failed"
+            echo "Expected serial: $CERT_SERIAL"
+            security find-certificate -c "$CERT_NAME" -Z
             exit 1
-          }
+          fi
+          
+          echo "✅ Certificate validation passed"
           
           echo "📋 Checking available provisioning profiles..."
           echo "Provisioning profiles directory:"
@@ -201,6 +205,7 @@ workflows:
             OTHER_LDFLAGS="-fembed-bitcode=NO" \
             PROVISIONING_PROFILE_SPECIFIER_APP="SoryCal profile V2" \
             CODE_SIGN_STYLE_PODS=Automatic \
+            CODE_SIGN_IDENTITY_PODS="-" \
             > "$LOG_DIR/archive.log" 2>&1
           
           ARCHIVE_STATUS=$?
