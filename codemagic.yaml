@@ -170,7 +170,7 @@ workflows:
           echo "Scheme: $XCODE_SCHEME"
           echo "Archive path: $ARCHIVE_PATH"
           
-          # Build with detailed logging
+          # Build with detailed logging and proper code signing configuration
           xcodebuild archive \
             -workspace "$XCODE_WORKSPACE" \
             -scheme "$XCODE_SCHEME" \
@@ -187,9 +187,9 @@ workflows:
             CODE_SIGN_IDENTITY="iPhone Developer" \
             CODE_SIGNING_REQUIRED=YES \
             CODE_SIGNING_ALLOWED=YES \
-            PROVISIONING_PROFILE_SPECIFIER="SoryCal profile V2" \
             OTHER_CFLAGS="-fembed-bitcode=NO" \
             OTHER_LDFLAGS="-fembed-bitcode=NO" \
+            PROVISIONING_PROFILE_SPECIFIER_APP="SoryCal profile V2" \
             > "$LOG_DIR/archive.log" 2>&1
           
           ARCHIVE_STATUS=$?
