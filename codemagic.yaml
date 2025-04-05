@@ -88,6 +88,8 @@ workflows:
               target.build_configurations.each do |config|
                 config.build_settings['CODE_SIGN_STYLE'] = 'Automatic'
                 config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
+                config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
+                config.build_settings['SWIFT_VERSION'] = '5.0'
               end
             end
           end
@@ -99,6 +101,26 @@ workflows:
           echo "✅ Pod installation completed"
           echo "Checking generated files:"
           ls -la Pods/
+
+      - name: Create export options
+        script: |
+          echo "📝 Creating exportOptions.plist..."
+          cat > exportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>uploadBitcode</key>
+              <false/>
+              <key>uploadSymbols</key>
+              <true/>
+          </dict>
+          </plist>
+          EOF
+          
+          echo "✅ exportOptions.plist created"
 
       - name: Build ipa for distribution
         script: |
@@ -147,6 +169,7 @@ workflows:
             ENABLE_BITCODE=NO \
             ONLY_ACTIVE_ARCH=NO \
             VALIDATE_WORKSPACE=YES \
+            SWIFT_OPTIMIZATION_LEVEL=-Onone \
             > "$LOG_DIR/archive.log" 2>&1
           
           ARCHIVE_STATUS=$?
