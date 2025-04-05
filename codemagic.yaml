@@ -16,9 +16,9 @@ workflows:
         XCODE_SCHEME: "StoryCal"
         APP_ID: 6742653857  # From App Store Connect
         EXPO_TOKEN: $EXPO_TOKEN  # Optional, for future EAS-related features
-        NODE_VERSION: 18.19.0
+        NODE_VERSION: 16.20.2
         RUBY_VERSION: 3.2.2
-      node: 18.19.0
+      node: 16.20.2
       xcode: latest
       cocoapods: default
 
@@ -31,7 +31,7 @@ workflows:
           rm -f package-lock.json
           echo "✅ Done removing package-lock.json"
 
-      - name: Install dependencies, Expo CLI and eject app
+      - name: Install dependencies and Expo
         script: |
           echo "📦 Starting dependency installation..."
           echo "Current directory: $(pwd)"
@@ -41,33 +41,18 @@ workflows:
           echo "🔄 Installing dependencies..."
           yarn install
           
-          echo "📱 Installing Expo CLI..."
-          yarn global add expo-cli
+          echo "📱 Installing Expo..."
+          yarn add expo
+          
+          echo "🔄 Installing new Expo CLI..."
+          yarn add -D @expo/cli
           
           echo "🏗️ Running Expo prebuild..."
-          expo prebuild --platform ios
+          npx expo prebuild --platform ios
           
           echo "✅ Prebuild completed"
           echo "Checking generated files:"
           ls -la ios/
-
-      - name: Set Info.plist values
-        script: |
-          echo "📝 Setting up Info.plist..."
-          PLIST=$CM_BUILD_DIR/ios/StoryCal/Info.plist
-          PLIST_BUDDY=/usr/libexec/PlistBuddy
-          
-          echo "Current Info.plist location: $PLIST"
-          echo "Info.plist exists: $(test -f "$PLIST" && echo "Yes" || echo "No")"
-          
-          echo "🔍 Checking current ITSAppUsesNonExemptEncryption value..."
-          if ! $PLIST_BUDDY -c "Print :ITSAppUsesNonExemptEncryption" "$PLIST" > /dev/null 2>&1; then
-            echo "➕ Adding ITSAppUsesNonExemptEncryption..."
-            $PLIST_BUDDY -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST"
-            echo "✅ Added successfully"
-          else
-            echo "ℹ️ ITSAppUsesNonExemptEncryption already exists"
-          fi
 
       - name: Install CocoaPods dependencies
         script: |
@@ -90,7 +75,6 @@ workflows:
                 config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '12.0'
                 config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Onone'
                 config.build_settings['SWIFT_VERSION'] = '5.0'
-                config.build_settings['DEVELOPMENT_TEAM'] = '286X5G8B98'
               end
             end
           end
@@ -113,8 +97,6 @@ workflows:
           <dict>
               <key>method</key>
               <string>development</string>
-              <key>teamID</key>
-              <string>286X5G8B98</string>
               <key>uploadBitcode</key>
               <false/>
               <key>uploadSymbols</key>
@@ -165,7 +147,6 @@ workflows:
             -scheme "$XCODE_SCHEME" \
             -archivePath "$ARCHIVE_PATH" \
             CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=286X5G8B98 \
             COMPILER_INDEX_STORE_ENABLE=NO \
             -destination "generic/platform=iOS" \
             SKIP_INSTALL=NO \
