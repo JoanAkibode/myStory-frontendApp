@@ -28,10 +28,13 @@
     "react-dom": "18.3.1",
     "react-native": "0.76.3",
     "react-native-chart-kit": "^6.12.0",
+    "react-native-get-random-values": "^1.11.0",
     "react-native-safe-area-context": "^5.1.0",
     "react-native-screens": "^4.6.0",
     "react-native-svg": "^15.10.1",
-    "react-native-web": "^0.19.13"
+    "react-native-url-polyfill": "^2.0.0",
+    "react-native-web": "^0.19.13",
+    "web-streams-polyfill": "^4.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.26.7",
